@@ -1,0 +1,47 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Run netprism cli CLab LLDP",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/netprism/main.py",
+            "pythonPath": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "-t",
+                "/home/samuelbarata/labs/dsi-dc2/dsi.clab.yml",
+                "lldp"
+            ],
+        },
+        {
+            "name": "Python: Run netprism cli CLab SYS-INFO",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/netprism/main.py",
+            "pythonPath": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "-t",
+                "/home/samuelbarata/labs/dsi-dc2/dsi.clab.yml",
+                "sys-info"
+            ],
+        },
+        {
+            "name": "Python: Run netprism cli nornir",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/netprism/main.py",
+            "pythonPath": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "-c",
+                "/home/samuelbarata/tmp/nornir_config.yaml",
+                "sys-info"
+            ]
+        },
+    ]
+  }

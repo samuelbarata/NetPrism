@@ -1,0 +1,28 @@
+[project]
+name = "netprism"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Samuel Barata",email = "samuel.barata@tecnico.ulisboa.pt"}
+]
+readme = "README.md"
+requires-python = ">=3.9,<4.0"
+dependencies = [
+    "nornir (>=3.5.0,<4.0.0)",
+    "napalm (>=5.0.0,<6.0.0)",
+    "napalm-sros (>=1.0.2,<2.0.0)",
+    "napalm-srl (>=1.0.5,<2.0.0)",
+    "napalm-huawei-vrp (>=1.2.0,<2.0.0)",
+    "rich (>=13.9.4,<14.0.0)",
+    "nornir-utils (>=0.2.0,<0.3.0)",
+    "click (>=8.1.8,<9.0.0)",
+    "nornir-napalm (>=0.5.0,<0.6.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[project.scripts]
+netprism = 'netprism.main:cli'
