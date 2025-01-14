@@ -1,7 +1,7 @@
 from importlib.metadata import PackageNotFoundError
 from typing import Any, Dict, List, Optional, Callable
 import importlib
-import fnmatch
+from fnmatch import fnmatch
 import sys
 import tempfile
 from datetime import timedelta
