@@ -26,6 +26,8 @@
             "args": [
                 "-t",
                 "/home/samuelbarata/labs/dsi-dc2/dsi.clab.yml",
+                "--cert-file",
+                "/home/samuelbarata/labs/dsi-dc2/clab-dsi/.tls/ca/ca.pem",
                 "sys-info"
             ],
         },

@@ -36,6 +36,8 @@ DEFAULTS = {
         'username': 'admin',
         'password': 'NokiaSrl1!',
         'gnmi_port': 57400,
+        'jsonrpc_port': 80,
+        'insecure': True, # Allow jasonrpc 80 instead of 443
     },
     "junos": {
         'username': 'admin',
@@ -43,7 +45,7 @@ DEFAULTS = {
     },
     "sros": {
         'username': 'admin',
-        'password': 'admin2',
+        'password': 'admin',
     }
 }
 
@@ -312,44 +314,42 @@ def cli(
                 }
         groups: Dict[str, Dict[str, Any]] = {
             "srl": {
-                "username": DEFAULTS['srl']['username'],
-                "password": DEFAULTS['srl']['password'],
-                "port": DEFAULTS['srl']['gnmi_port'],
-                "extras": {},
                 "connection_options": {
-                    "srlinux": {
+                    "napalm": {
                         "username": DEFAULTS['srl']['username'],
                         "password": DEFAULTS['srl']['password'],
                         "port": DEFAULTS['srl']['gnmi_port'],
-                        "extras": {},
+                        "extras": {
+                            "optional_args":{
+                                "gnmi_port": DEFAULTS['srl']['gnmi_port'],
+                                "jsonrpc_port": DEFAULTS['srl']['jsonrpc_port'],
+                                "insecure": DEFAULTS['srl']['insecure']
+                            }
+                        },
                     },
                 }
             },
             "junos": {
-                "username": DEFAULTS['junos']['username'],
-                "password": DEFAULTS['junos']['password'],
                 "connection_options": {
-                    "junos": {
+                    "napalm": {
                         "username": DEFAULTS['junos']['username'],
                         "password": DEFAULTS['junos']['password'],
+                        "extras": {}
                     },
                 }
             },
             "sros": {
-                "username": DEFAULTS['sros']['username'],
-                "password": DEFAULTS['sros']['password'],
                 "connection_options": {
-                    "sros": {
+                    "napalm": {
                         "username": DEFAULTS['sros']['username'],
                         "password": DEFAULTS['sros']['password'],
+                        "extras": {}
                     },
                 }
             },
         }
         if cert_file:
-            groups["srl"]["connection_options"]["srlinux"]["extras"][
-                "path_cert"
-            ] = cert_file
+            groups["srl"]["connection_options"]["napalm"]["extras"]["optional_args"]["tls_ca"] = cert_file
 
         try:
             with tempfile.NamedTemporaryFile("w+") as hosts_f:
@@ -454,7 +454,8 @@ def sys_info(ctx: Context, field_filter: Optional[List] = None):
                 continue
             node_ret = []
             dev_result = res[node].result[GET]
-            dev_result['uptime'] = str(timedelta(seconds=dev_result['uptime'])) + 's'
+            if isinstance(dev_result['uptime'], float):
+                dev_result['uptime'] = str(timedelta(seconds=dev_result['uptime'])) + 's'
             new_res = {}
             for key in dev_result:
                 if key in EXISTING_HEADERS:
