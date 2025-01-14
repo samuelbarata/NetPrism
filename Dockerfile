@@ -7,7 +7,7 @@ ENV POETRY_NO_INTERACTION=1 \
     POETRY_VERSION=2.0.1 \
     PYTHON_PKG="nornir-srl"
 
-RUN pip --root-user-action install "poetry==$POETRY_VERSION"
+RUN pip install "poetry==$POETRY_VERSION"
 
 WORKDIR /app
 
