@@ -4,7 +4,7 @@ import importlib
 import fnmatch
 import sys
 import tempfile
-from copy import deepcopy
+from datetime import timedelta
 
 from ruamel.yaml import YAML
 
@@ -139,8 +139,6 @@ def print_table(
         }
         return len(matched) >= len(filter)
     
-    print(results.items())
-
     for host, host_result in results.items():
         rows = []
 
@@ -501,7 +499,7 @@ def lldp(ctx: Context, field_filter: Optional[List] = None):
                 continue
             node_ret = []
             for k in res[node].result[GET]:
-                dev_result = res[node].result[GET][k]
+                dev_result = res[node].result[GET]
                 new_res = {HEADERS[0]['_default']: k}
                 for obj in dev_result:
                     for key in obj:
@@ -523,6 +521,65 @@ def lldp(ctx: Context, field_filter: Optional[List] = None):
         i_filter=ctx.obj["i_filter"],
     )
 
+@cli.command()
+@click.pass_context
+@click.option(
+    "--field-filter",
+    "-f",
+    multiple=True,
+    help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
+)
+def arp(ctx: Context, field_filter: Optional[List] = None):
+    """Displays ARP table"""
+
+    GET = 'arp_table'
+    HEADERS = [{'interface': 'interface'}, {'mac':'MAC'}, {'ip':'IPv4'}, {'Type':'Type'}, {'age':'expiry'}, {'vrf':'vrf'}]
+    EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
+
+    def _arp(task: Task) -> Result:
+        return napalm_get(task=task, getters=[GET])
+
+    f_filter = (
+        {k: v for k, v in [f.split("=") for f in field_filter]} if field_filter else {}
+    )
+
+    result = ctx.obj["target"].run(
+        task=_arp, name=GET, raise_on_error=False
+    )
+
+    print_result(result)
+
+    def _process_results(res: AggregatedResult) -> AggregatedResult:
+        ret = {}
+        for node in res:
+            if res[node].failed:
+                continue
+            node_ret = []
+            for dev_result in res[node].result[GET]:
+                if isinstance(dev_result['age'], float):
+                    dev_result['Type'] = 'dynamic'
+                    dev_result['age'] = str(timedelta(seconds=dev_result['age'])) + 's'
+                else:
+                    dev_result['Type'] = 'static'
+                new_res = {}
+                for key in dev_result:
+                    if key in EXISTING_HEADERS:
+                        new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: dev_result[key]})
+                node_ret.append(new_res)
+            ret[node] = node_ret
+        return ret
+    
+    processed_result = _process_results(result)
+
+    print_report(
+        processed_result=processed_result,
+        result=result,
+        headers=HEADERS,
+        name="ARP table",
+        box_type=ctx.obj["box_type"],
+        f_filter=f_filter,
+        i_filter=ctx.obj["i_filter"],
+    )
 
 
 if __name__ == "__main__":

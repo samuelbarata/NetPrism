@@ -30,6 +30,20 @@
             ],
         },
         {
+            "name": "Python: Run netprism cli CLab arp",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/netprism/main.py",
+            "pythonPath": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "-t",
+                "/home/samuelbarata/labs/dsi-dc2/dsi.clab.yml",
+                "arp"
+            ],
+        },
+        {
             "name": "Python: Run netprism cli nornir",
             "type": "python",
             "request": "launch",
