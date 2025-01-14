@@ -13,7 +13,7 @@ WORKDIR /app
 
 COPY pyproject.toml ./
 COPY . ./
-RUN poetry install --no-dev 
+RUN poetry install
 
 FROM python:3.12-slim-bookworm as runtime
 
