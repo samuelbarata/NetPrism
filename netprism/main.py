@@ -57,15 +57,15 @@ NORNIR_DEFAULT_CONFIG: Dict[str, Any] = {
             "defaults_file": "clab_defaults.yml",
         },
     },
-    # "runner": {
-    #     "plugin": "threaded",
-    #     "options": {
-    #         "num_workers": 20,
-    #     },
-    # },
     "runner": {
-        "plugin": "serial",
+        "plugin": "threaded",
+        "options": {
+            "num_workers": 20,
+        },
     },
+    # "runner": {
+    #     "plugin": "serial",
+    # },
     "user_defined": {
         "intent_dir": "intent",
     },
@@ -499,7 +499,7 @@ def lldp(ctx: Context, field_filter: Optional[List] = None):
                 continue
             node_ret = []
             for k in res[node].result[GET]:
-                dev_result = res[node].result[GET]
+                dev_result = res[node].result[GET][k]
                 new_res = {HEADERS[0]['_default']: k}
                 for obj in dev_result:
                     for key in obj:
