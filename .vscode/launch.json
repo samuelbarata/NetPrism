@@ -53,7 +53,8 @@
             "justMyCode": true,
             "args": [
                 "-t",
-                "/home/samuelbarata/labs/dsi-dc2/dsi.clab.yml",
+                "/home/samuelbarata/labs/srl-sros-telemetry-lab/st.clab.yml",
+                "--debug",
                 "mac"
             ],
         },

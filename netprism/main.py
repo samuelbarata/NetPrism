@@ -138,7 +138,7 @@ def print_table(
             if filter.get(str(k).lower()) and fnmatch(str(row[k]), str(filter[str(k).lower()]))
         }
         return len(matched) >= len(filter)
-    
+
     for host, host_result in results.items():
         rows = []
 
@@ -223,6 +223,12 @@ def print_table(
     type=click.Path(exists=True),
     help="CLAB certificate file, e.g. -c ca-root.pem",
 )
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Enable debug mode."
+)
+
 @click.pass_context
 @click.version_option(version=get_project_version())
 def cli(
@@ -234,6 +240,7 @@ def cli(
     box_type: Optional[str] = None,
     topo_file: Optional[str] = None,
     cert_file: Optional[str] = None,
+    debug: Optional[bool] = False
 ) -> None:
     ctx.ensure_object(dict)
     if topo_file:  # CLAB mode, -c ignored, inventory generated from topo file
@@ -383,6 +390,7 @@ def cli(
         box_type = box_type.upper()
     ctx.obj["box_type"] = box_type
     ctx.obj["format"] = format
+    ctx.obj["debug"]=debug
 
 
 def print_report(
@@ -436,7 +444,8 @@ def sys_info(ctx: Context, field_filter: Optional[List] = None):
         task=_sys_info, name=GET, raise_on_error=False
     )
 
-    print_result(result)
+    if(ctx.obj['debug']):
+        print_result(result)
 
     def _process_results(res: AggregatedResult):
         ret = {}
@@ -445,6 +454,7 @@ def sys_info(ctx: Context, field_filter: Optional[List] = None):
                 continue
             node_ret = []
             dev_result = res[node].result[GET]
+            dev_result['uptime'] = str(timedelta(seconds=dev_result['uptime'])) + 's'
             new_res = {}
             for key in dev_result:
                 if key in EXISTING_HEADERS:
@@ -490,7 +500,8 @@ def lldp(ctx: Context, field_filter: Optional[List] = None):
         task=_lldp_neighbors, name=GET, raise_on_error=False
     )
 
-    print_result(result)
+    if(ctx.obj['debug']):
+        print_result(result)
 
     def _process_results(res: AggregatedResult) -> AggregatedResult:
         ret = {}
@@ -508,7 +519,7 @@ def lldp(ctx: Context, field_filter: Optional[List] = None):
                 node_ret.append(new_res)
             ret[node] = node_ret
         return ret
-    
+
     processed_result = _process_results(result)
 
     print_report(
@@ -547,7 +558,8 @@ def arp(ctx: Context, field_filter: Optional[List] = None):
         task=_arp, name=GET, raise_on_error=False
     )
 
-    print_result(result)
+    if(ctx.obj['debug']):
+        print_result(result)
 
     def _process_results(res: AggregatedResult) -> AggregatedResult:
         ret = {}
@@ -568,7 +580,7 @@ def arp(ctx: Context, field_filter: Optional[List] = None):
                 node_ret.append(new_res)
             ret[node] = node_ret
         return ret
-    
+
     processed_result = _process_results(result)
 
     print_report(
@@ -607,7 +619,8 @@ def arp(ctx: Context, field_filter: Optional[List] = None):
 #         task=_mac, name=GET, raise_on_error=False
 #     )
 
-#     print_result(result)
+#     if(ctx.obj['debug']):
+#         print_result(result)
 
 #     def _process_results(res: AggregatedResult) -> AggregatedResult:
 #         ret = {}
@@ -628,7 +641,7 @@ def arp(ctx: Context, field_filter: Optional[List] = None):
 #                 node_ret.append(new_res)
 #             ret[node] = node_ret
 #         return ret
-    
+
 #     processed_result = _process_results(result)
 
 #     print_report(
