@@ -11,7 +11,7 @@ RUN pip install "poetry==$POETRY_VERSION"
 
 WORKDIR /app
 
-COPY poetry.lock pyproject.toml ./
+COPY pyproject.toml ./
 COPY . ./
 RUN poetry install --no-dev 
 
