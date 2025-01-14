@@ -1,0 +1,45 @@
+image: docker:20.10.16
+services:
+  - name: docker:20.10.16-dind
+    alias: docker
+
+variables:
+  DOCKER_TLS_CERTDIR: ""
+  CI_REGISTRY_REPO: netprism
+  CI_REGISTRY_USER: $DOCKER_USER
+  CI_REGISTRY_IMAGE: $CI_REGISTRY_USER/$CI_REGISTRY_REPO
+  CONTAINER_TEST_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+  CONTAINER_RELEASE_IMAGE: $CI_REGISTRY_IMAGE:latest
+
+before_script:
+  - echo $DOCKER_PASSWORD | docker login -u $DOCKER_USER --password-stdin #$DOCKER_REGISTRY
+
+stages:
+- build
+- deploy
+
+build:
+  stage: build
+  script:
+    - docker build --pull -t $CONTAINER_TEST_IMAGE .
+    - docker push $CONTAINER_TEST_IMAGE
+
+Deploy:
+  stage: deploy
+  when: manual
+  script:
+    - docker pull $CONTAINER_TEST_IMAGE
+    - docker tag $CONTAINER_TEST_IMAGE $CONTAINER_RELEASE_IMAGE
+    - docker push $CONTAINER_RELEASE_IMAGE
+  only:
+    - main
+
+Deploy Tag:
+  stage: deploy
+  when: manual
+  script:
+    - docker pull $CONTAINER_TEST_IMAGE
+    - docker tag $CONTAINER_TEST_IMAGE $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+  only:
+    - tags
