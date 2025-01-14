@@ -4,13 +4,14 @@ import importlib
 import fnmatch
 import sys
 import tempfile
+from copy import deepcopy
 
 from ruamel.yaml import YAML
 
 from nornir import InitNornir
 from nornir.core import Nornir
 
-from nornir.core.task import Result, Task, AggregatedResult
+from nornir.core.task import Result, Task, AggregatedResult, MultiResult
 from nornir_napalm.plugins.tasks import napalm_get, napalm_cli, napalm_configure, napalm_ping
 
 from nornir.core.inventory import Host
@@ -42,7 +43,7 @@ DEFAULTS = {
     },
     "sros": {
         'username': 'admin',
-        'password': 'admin',
+        'password': 'admin2',
     }
 }
 
@@ -82,7 +83,7 @@ def print_table(
     title: str,
     resource: str,
     headers: List[dict],
-    results: AggregatedResult,
+    results: Dict[str, List],
     filter: Optional[Dict],
     **kwargs,
 ) -> None:
@@ -137,44 +138,30 @@ def print_table(
             if filter.get(str(k).lower()) and fnmatch(str(row[k]), str(filter[str(k).lower()]))
         }
         return len(matched) >= len(filter)
+    
+    print(results.items())
 
     for host, host_result in results.items():
         rows = []
-        r: Result = host_result[0]
-        node: Host = r.host if r.host else Host("unkown")
-        if r.failed:
-            print(f"Failed to get {resource} for {host}. Exception: {r.exception}")
-            continue
 
-        data = r.result.get(resource, {})
-        rows = []
+        for record in host_result:
+            common = {
+                key: value
+                for key, value in record.items()
+                if isinstance(value, (str, int, float))
+                or (
+                    isinstance(value, list)
+                    and len(value) > 0
+                    and not isinstance(value[0], dict)
+                )
+            }
 
-        print(r.result.get(resource, {}))
-        # {'hostname': 'sr1', 'fqdn': 'sr1', 'vendor': 'Nokia', 'model': '7220 IXR-D2L'}
-        # {'ethernet-1/1': [{'parent_interface': 'ethernet-1/1', 'remote_port': '520', 'remote_port_description': 'ge-0/0/0', 'remote_chassis_id': '2C:6B:F5:F6:8A:C0', 'remote_system_name': 'vmx', 'remote_system_description': 'Juniper Networks, Inc. ex9214 Ethernet Switch, kernel JUNOS 23.2R1.14, Build date: 2023-06-22 13:29:14 UTC Copyright (c) 1996-2023 Juniper Networks, Inc.', 'remote_system_capab': ['srl_nokia-lldp-types:MAC_BRIDGE', 'srl_nokia-lldp-types:ROUTER'], 'remote_system_enable_capab': ['srl_nokia-lldp-types:MAC_BRIDGE', 'srl_nokia-lldp-types:ROUTER']}]}
-        for k, records in data.items():
-            print(k, records)
-
-            for record in records:
-                common = {
-                    key: value
-                    for key, value in record.items()
-                    if isinstance(value, (str, int, float))
-                    or (
-                        isinstance(value, list)
-                        and len(value) > 0
-                        and not isinstance(value[0], dict)
-                    )
-                }
-
-                if pass_filter(common, filter):
-                    row = {}
-                    for header in headers:
-                        key, value = list(header.items())[0]
-                        row[value] = record.get(key, "-") if key != "_default" else k
-                    rows.append(row)
-
-
+            if pass_filter(common, filter):
+                row = {}
+                for header in headers:
+                    _, value = list(header.items())[0]
+                    row[value] = record.get(value, "-")
+                rows.append(row)
 
         first_row = True
         for row in rows:
@@ -184,8 +171,7 @@ def print_table(
             values = [styled_row.get(k, "") for k in col_names]
 
             if first_row:
-                node_name = node.hostname if hasattr(node, 'hostname') and node.hostname else node.name
-                table.add_row(node_name, *values)
+                table.add_row(host, *values)
                 first_row = False
             else:
                 table.add_row("", *values)
@@ -402,9 +388,9 @@ def cli(
 
 
 def print_report(
+    processed_result: Dict[str, List],
     result: AggregatedResult,
     name: str,
-    failed_hosts: List,
     headers: List[dict],
     box_type: Optional[str] = None,
     f_filter: Optional[Dict] = None,
@@ -415,14 +401,14 @@ def print_report(
         title += "\nFields filter:" + str(f_filter)
     if i_filter:
         title += "\nInventory filter:" + str(i_filter)
-    if len(failed_hosts) > 0:
-        title += "\n[red]Failed hosts:" + str(failed_hosts)
+    if len(result.failed_hosts) > 0:
+        title += "\n[red]Failed hosts:" + str(result.failed_hosts)
 
     print_table(
         title=title,
         resource=result.name,
         headers=headers,
-        results=result,
+        results=processed_result,
         filter=f_filter,
         box_type=box_type,
     )
@@ -439,7 +425,8 @@ def sys_info(ctx: Context, field_filter: Optional[List] = None):
     """Displays System Info of nodes"""
 
     GET = 'facts'
-    HEADERS = [{'vendor':'vendor'}, {'type':'model'}, {'serial_number':'serial-number'}, {'os_version':'software-version'}]
+    HEADERS = [{'vendor':'vendor'}, {'model':'model'}, {'serial_number':'serial-number'}, {'os_version':'software-version'}, {'uptime':'uptime'}]
+    EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
 
     def _sys_info(task: Task) -> Result:
         return napalm_get(task=task, getters=[GET])
@@ -453,11 +440,28 @@ def sys_info(ctx: Context, field_filter: Optional[List] = None):
 
     print_result(result)
 
+    def _process_results(res: AggregatedResult):
+        ret = {}
+        for node in res:
+            if res[node].failed:
+                continue
+            node_ret = []
+            dev_result = res[node].result[GET]
+            new_res = {}
+            for key in dev_result:
+                if key in EXISTING_HEADERS:
+                    new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: dev_result[key]})
+            node_ret.append(new_res)
+            ret[node] = node_ret
+        return ret
+
+    processed_result = _process_results(result)
+
     print_report(
+        processed_result=processed_result,
         result=result,
         name="System Info",
         headers=HEADERS,
-        failed_hosts=result.failed_hosts,
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
@@ -476,6 +480,7 @@ def lldp(ctx: Context, field_filter: Optional[List] = None):
 
     GET = 'lldp_neighbors_detail'
     HEADERS = [{'_default': 'Interface'}, {'remote_system_name':'Nbr-System'}, {'remote_port':'Nbr-port'}, {'remote_port_description':'Nbr-port-desc'}]
+    EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
 
     def _lldp_neighbors(task: Task) -> Result:
         return napalm_get(task=task, getters=[GET])
@@ -489,11 +494,30 @@ def lldp(ctx: Context, field_filter: Optional[List] = None):
 
     print_result(result)
 
+    def _process_results(res: AggregatedResult) -> AggregatedResult:
+        ret = {}
+        for node in res:
+            if res[node].failed:
+                continue
+            node_ret = []
+            for k in res[node].result[GET]:
+                dev_result = res[node].result[GET][k]
+                new_res = {HEADERS[0]['_default']: k}
+                for obj in dev_result:
+                    for key in obj:
+                        if key in EXISTING_HEADERS:
+                            new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: obj[key]})
+                node_ret.append(new_res)
+            ret[node] = node_ret
+        return ret
+    
+    processed_result = _process_results(result)
+
     print_report(
+        processed_result=processed_result,
         result=result,
         name="LLDP Neighbors",
         headers=HEADERS,
-        failed_hosts=result.failed_hosts,
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
