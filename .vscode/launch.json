@@ -11,7 +11,11 @@
             "justMyCode": true,
             "args": [
                 "-t",
-                "/home/samuelbarata/labs/dsi-dc2/dsi.clab.yml",
+                "/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml",
+                "--cert-file",
+                "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
+                // "--inv-filter",
+                // "site=dc1",
                 "lldp"
             ],
         },
@@ -22,12 +26,15 @@
             "program": "${workspaceFolder}/netprism/main.py",
             "pythonPath": "${workspaceFolder}/.venv/bin/python",
             "console": "integratedTerminal",
-            "justMyCode": true,
+            "justMyCode": false,
             "args": [
                 "-t",
-                "/home/samuelbarata/labs/dsi-dc2/dsi.clab.yml",
+                "/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml",
                 "--cert-file",
-                "/home/samuelbarata/labs/dsi-dc2/clab-dsi/.tls/ca/ca.pem",
+                "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
+                // "--inv-filter",
+                // "site=dc1",
+                // "--debug",
                 "sys-info"
             ],
         },
@@ -41,7 +48,11 @@
             "justMyCode": true,
             "args": [
                 "-t",
-                "/home/samuelbarata/labs/dsi-dc2/dsi.clab.yml",
+                "/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml",
+                "--cert-file",
+                "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
+                // "--inv-filter",
+                // "site=dc1",
                 "arp"
             ],
         },
@@ -55,9 +66,31 @@
             "justMyCode": true,
             "args": [
                 "-t",
-                "/home/samuelbarata/labs/srl-sros-telemetry-lab/st.clab.yml",
-                "--debug",
+                "/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml",
+                "--cert-file",
+                "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
+                // "--inv-filter",
+                // "site=dc1",
                 "mac"
+            ],
+        },
+        {
+            "name": "Python: Run netprism cli CLab bgp-peers",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/netprism/main.py",
+            "pythonPath": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "-t",
+                "/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml",
+                "--cert-file",
+                "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
+                // "--inv-filter",
+                // "site=dc1",
+                // "--debug",
+                "bgp-peers"
             ],
         },
         {
@@ -70,7 +103,7 @@
             "justMyCode": true,
             "args": [
                 "-c",
-                "/home/samuelbarata/tmp/nornir_config.yaml",
+                "/home/samuelbarata/labs/dci-netprism-lab/nornir/nornir_config.yaml",
                 "sys-info"
             ]
         },

@@ -108,6 +108,7 @@ def print_table(
         "active": "[cyan]",
     }
 
+
     console = Console(theme=table_theme)
     console._emoji = False
     if kwargs.get("box_type") and kwargs["box_type"] != None:
@@ -166,7 +167,7 @@ def print_table(
         first_row = True
         for row in rows:
             styled_row = {
-                k: f"{STYLE_MAP.get(str(v), '')}{v}" for k, v in row.items()
+                k: f"{STYLE_MAP.get(str(v).lower(), '')}{v}" for k, v in row.items()
             }
             values = [styled_row.get(k, "") for k in col_names]
 
@@ -178,7 +179,7 @@ def print_table(
 
         table.add_section()
 
-    if len(table.columns) > 1:
+    if len(table.rows) > 1:
         console.print(table)
     else:
         console.print("[i]No data...[/i]")
@@ -606,18 +607,6 @@ def mac(ctx: Context, field_filter: Optional[List] = None):
     """Displays MAC table"""
 
     GET = 'get_mac_address_table'
-
-
-    # {
-    #     'active': False,
-    #     'interface': 'vxlan-interface:vxlan1.1 '
-    #                 'vtep:10.0.3.1 vni:1',
-    #     'last_move': -1.0,
-    #     'mac': 'AA:C1:AB:38:40:C0',
-    #     'moves': -1,
-    #     'static': True,
-    #     'vlan': -1
-    # },
     HEADERS = [{'mac':'Address'}, {'interface':'Dest'}, {'vlan':'vlan'}, {'static':'static'}]
     EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
 
@@ -657,6 +646,68 @@ def mac(ctx: Context, field_filter: Optional[List] = None):
         result=result,
         headers=HEADERS,
         name="MAC table",
+        box_type=ctx.obj["box_type"],
+        f_filter=f_filter,
+        i_filter=ctx.obj["i_filter"],
+    )
+
+
+@cli.command()
+@click.pass_context
+@click.option(
+    "--field-filter",
+    "-f",
+    multiple=True,
+    help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
+)
+def bgp_peers(ctx: Context, field_filter: Optional[List] = None):
+    """Displays BGP Peers and their status"""
+
+    GET = 'get_bgp_neighbors_detail'
+    HEADERS = [{'_default':'VRF'}, {'remote_address':'Peer'}, {'Rx/Act/Tx':'Rx/Act/Tx'}, {'export_policy':'Export Policy'}, {'routing_table':'Group'}, {'import_policy':'Import Policy'}, {'local_as':'Local AS'}, {'peer_as':'Remote AS'}, {'connection_state':'State'}]
+    EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
+
+    def _bgp_peers(task: Task) -> Result:
+        return napalm_get(task=task, getters=[GET])
+
+    f_filter = (
+        {k: v for k, v in [f.split("=") for f in field_filter]} if field_filter else {}
+    )
+
+    result = ctx.obj["target"].run(
+        task=_bgp_peers, name=GET, raise_on_error=False
+    )
+
+    if(ctx.obj['debug']):
+        print_result(result)
+
+    def _process_results(res: AggregatedResult) -> AggregatedResult:
+        ret = {}
+        for node in res:
+            if res[node].failed:
+                continue
+            node_ret = []
+            for k in res[node].result[GET]:
+                dev_result = res[node].result[GET][k]
+                for peer_as in dev_result:
+                    for connection in dev_result[peer_as]:
+                        new_res = {HEADERS[0]['_default']: k, HEADERS[EXISTING_HEADERS.index('peer_as')]['peer_as']: peer_as}
+                        new_res.update({HEADERS[EXISTING_HEADERS.index('Rx/Act/Tx')]['Rx/Act/Tx']: f"{connection['received_prefix_count']}/{connection['accepted_prefix_count']}/{connection['advertised_prefix_count']}"})
+                        for key in connection:
+                            if key in EXISTING_HEADERS:
+                                new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: connection[key]})
+                        node_ret.append(new_res)
+            ret[node] = node_ret
+        return ret
+
+
+    processed_result = _process_results(result)
+
+    print_report(
+        processed_result=processed_result,
+        result=result,
+        headers=HEADERS,
+        name="BGP Peers",
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
