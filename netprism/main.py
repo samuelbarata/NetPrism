@@ -882,5 +882,71 @@ def ni(ctx: Context, field_filter: Optional[List] = None):
         i_filter=ctx.obj["i_filter"],
     )
 
+@cli.command()
+@click.pass_context
+@click.option(
+    "--field-filter",
+    "-f",
+    multiple=True,
+    help='filter fields with <field-name>=<glob-pattern>, e.g. -f state=up -f admin_state="ena*". Fieldnames correspond to column names of a report',
+)
+def rib(ctx: Context, field_filter: Optional[List] = None):
+    """Displays Routing Table"""
+
+    GET = 'get_route_to'
+    HEADERS = [{'_default':'Route'}, {'protocol':'Protocol'}, {'next_hop':'Next Hop'}, {'selected_next_hop':'Selected Next Hop'}, {'preference':'preference'}, {'routing_table': 'Routing Table'}, {'outgoing_interface':'Outgoing Interface'}, {'as_path':'AS Path'}]
+    EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
+
+    def _rib(task: Task) -> Result:
+        return napalm_get(task=task, getters=[GET])
+
+    f_filter = (
+        {k: v for k, v in [f.split("=") for f in field_filter]} if field_filter else {}
+    )
+    result = ctx.obj["target"].run(
+        task=_rib, name=GET, raise_on_error=False
+    )
+
+    if(ctx.obj['debug']):
+        print_result(result)
+
+    def _process_results(res: AggregatedResult):
+        ret = {}
+        for node in res:
+            if res[node].failed:
+                continue
+            node_ret = []
+            for k in res[node].result[GET]:
+                dev_result = res[node].result[GET][k]
+
+                for route in dev_result:
+                    new_res = {HEADERS[0]['_default']: k}
+                    for key in route:
+                        if key in EXISTING_HEADERS:
+                            if route[key] != '' and route[key] != -1:
+                                new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: route[key]})
+                        if key == 'protocol_attributes':
+                            for proto_arg in route[key]:
+                                if proto_arg in EXISTING_HEADERS:
+                                    new_res.update({HEADERS[EXISTING_HEADERS.index(proto_arg)][proto_arg]: route[key][proto_arg]})
+
+                    node_ret.append(new_res)
+
+
+            ret[node] = node_ret
+        return ret
+
+    processed_result = _process_results(result)
+
+    print_report(
+        processed_result=processed_result,
+        result=result,
+        name="RIB",
+        headers=HEADERS,
+        box_type=ctx.obj["box_type"],
+        f_filter=f_filter,
+        i_filter=ctx.obj["i_filter"],
+    )
+
 if __name__ == "__main__":
     cli(obj={})

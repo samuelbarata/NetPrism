@@ -799,3 +799,117 @@ class CustomSRLDriver(NokiaSRLDriver):
             return arp_table
         except Exception as e:
             logging.error("Error occurred : {}".format(e))
+
+    def get_route_to(self, destination='', protocol='', longer=False):
+        """
+        :return:Returns a dictionary of dictionaries containing details of all available routes to a destination.
+        """
+        try:
+            path = {"/network-instance"}
+            path_type = "STATE"
+            output = self.device._gnmiGet("", path, path_type)
+            dpath = {"/system/information/current-datetime"}
+            doutput = self.device._gnmiGet("", dpath, "STATE")
+            ctdatetime = self._getObj(doutput,
+                                      *['srl_nokia-system:system', 'srl_nokia-system-info:information', 'current-datetime'],
+                                      default=None)
+            interfaces = self._getObj(output, *['srl_nokia-network-instance:network-instance'], default=[])
+            route_data = {}
+            for i in interfaces:
+                routes = self._getObj(i, *["route-table", "srl_nokia-ip-route-tables:ipv4-unicast", "route"], default=[])
+                next_hop_groups = self._getObj(i, *["route-table", "srl_nokia-ip-route-tables:next-hop-group"], default=[])
+                next_hops = self._getObj(i, *["route-table", "srl_nokia-ip-route-tables:next-hop"], default=[])
+                name = self._getObj(i, *["name"])
+                for r in routes:
+                    if "next-hop-group" not in r:
+                        continue
+                    next_hop_group_id = r["next-hop-group"]
+                    next_hop_group = [n for n in next_hop_groups if n["index"] == next_hop_group_id]
+                    next_hop_group = next_hop_group[0]  # definitely this will be present . list cannot be empty
+                    next_hop_ids = [n["next-hop"] for n in next_hop_group["next-hop"]]
+
+                    ct_next_hops = [n for n in next_hops if n["index"] in next_hop_ids]
+                    ct_next_hops_data = []
+                    for next_hop in ct_next_hops:
+                        ip_address = self._getObj(next_hop, *["ip-address"])
+                        subinterface = self._getObj(next_hop, *["subinterface"])
+                        if ctdatetime and self._getObj(r, *["last-app-update"], default=None):
+                            ctdatetime_obj = datetime.datetime.strptime(ctdatetime, "%Y-%m-%dT%H:%M:%S.%fZ")
+                            last_app_date = datetime.datetime.strptime(r["last-app-update"], "%Y-%m-%dT%H:%M:%S.%fZ")
+                            age = int((ctdatetime_obj - last_app_date).total_seconds())
+                        else:
+                            age = -1
+                        ct_protocol = str(r["route-owner"]).split(":")[-1]
+                        data = {
+                            "protocol": ct_protocol,
+                            "current_active": self._getObj(r, *["active"], default=False),
+                            "last_active": False,
+                            "age": age,
+                            "next_hop": ip_address,
+                            "outgoing_interface": subinterface,
+                            "selected_next_hop": True if ip_address else False,
+                            "preference": self._getObj(r, *["preference"], default=-1),
+                            "inactive_reason": "",
+                            "routing_table": name,
+                        }
+                        if "bgp" in r["route-owner"]:
+                            bgp_protocol = self._getObj(i, *["protocols", "srl_nokia-bgp:bgp"], default={})
+                            afi_safi = i.get("srl_nokia-rib-bgp:bgp-rib", {}).get("afi-safi", {})
+                            ipv4_unicast = list(filter(lambda x: x['afi-safi-name'] == 'srl_nokia-common:ipv4-unicast', afi_safi))[0]
+                            bgp_rib_routes = ipv4_unicast.get("ipv4-unicast", {}).get("local-rib", {}).get("route", [])
+                            # bgp_rib_routes = self._getObj(i, *["srl_nokia-rib-bgp:bgp-rib", "ipv4-unicast", "local-rib",
+                            #                                    "routes"], default=[])
+                            bgp_rib_attrsets = self._getObj(i, *["srl_nokia-rib-bgp:bgp-rib", "attr-sets", "attr-set"],
+                                                            default=[])
+                            neighbor = [b for b in bgp_protocol["neighbor"] if b["peer-address"] == ip_address]
+                            neighbor = neighbor[0]  # exactly one neighbor will be present if it is bgp
+                            rib_route = [rr for rr in bgp_rib_routes if
+                                         rr["prefix"] == r["ipv4-prefix"] and rr["neighbor"] == ip_address and rr[
+                                             "origin-protocol"] == "srl_nokia-common:bgp"]
+                            rib_route = rib_route[0]
+                            attr_id = rib_route["attr-id"]
+                            att_set = [a for a in bgp_rib_attrsets if a["index"] == attr_id][0]
+                            data.update({
+                                "protocol_attributes": {
+                                    "local_as": self._getObj(bgp_protocol, *["autonomous-system"], default=-1),
+                                    "remote_as": self._getObj(neighbor, *["peer-as"], default=-1),
+                                    "peer_id": self._getObj(neighbor, *["peer-address"]),
+                                    "as_path": str(self._getObj(att_set, *["as-path", "segment", 0, "member", 0])),
+                                    "communities": self._getObj(att_set, *["communities", "community"], default=[]),
+                                    "local_preference": self._getObj(att_set, *["local-pref"], default=-1),
+                                    "preference2": -1,
+                                    "metric": self._getObj(r, *["metric"], default=-1),
+                                    "metric2": -1
+                                }
+                            })
+                        if "isis" in r["route-owner"]:
+                            isis_protocol = self._getObj(i, *["protocols", "srl_nokia-isis:isis", "instance"])[0]
+                            level = self._getObj(isis_protocol, *["level", 0, "level-number"], default=-1)
+                            data.update({
+                                "protocol_attributes": {
+                                    "level": level
+                                }
+                            })
+                        ct_next_hops_data.append(data)
+                    if destination and (
+                            destination == r["ipv4-prefix"] or destination == str(r["ipv4-prefix"]).split("/")[0]):
+                        return {
+                            r["ipv4-prefix"]: ct_next_hops_data
+                        }
+                    route_data.update({
+                        r["ipv4-prefix"]: ct_next_hops_data
+                    })
+            if protocol:
+                route_data_filtered = {}
+                for ipv4_prefix, nhs in route_data.items():
+                    next_hop_filtered = [n for n in nhs if n["protocol"] == protocol]
+                    if next_hop_filtered:
+                        route_data_filtered.update({
+                            ipv4_prefix: next_hop_filtered
+                        })
+                return route_data_filtered
+            if destination:  # if destination was present , it should not reach here, rather returned earlier.
+                return {}
+            return route_data
+        except Exception as e:
+            logging.error("Error occurred : {}".format(e))
