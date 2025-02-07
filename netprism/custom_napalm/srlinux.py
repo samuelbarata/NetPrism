@@ -2,26 +2,9 @@ from napalm_srl.srl import NokiaSRLDriver
 # https://github.com/napalm-automation-community/napalm-srlinux/blob/main/napalm_srl/srl.py
 
 from napalm.base.helpers import convert, as_number
-# import base64
-# import json
 import logging
-# import os
-# import re
 import datetime
-# import grpc
-# import tempfile
-# from google.protobuf import json_format
-# from napalm_srl import gnmi_pb2, jsondiff
 
-# from napalm.base import NetworkDriver
-# from napalm.base.helpers import convert, mac, as_number
-# from napalm.base.exceptions import (
-#     ConnectionException,
-#     MergeConfigException,
-#     ReplaceConfigException,
-#     CommandErrorException,
-#     CommitError,
-# )
 
 # import requests
 
@@ -34,6 +17,73 @@ class CustomSRLDriver(NokiaSRLDriver):
         }
         opt_args.update(optional_args)
         super().__init__(hostname, username, password, timeout, opt_args)
+
+    def get_facts(self):
+        """
+            Returns a dictionary containing the following information:
+                uptime - Uptime of the device in seconds.
+                vendor - Manufacturer of the device.
+                model - Device model.
+                hostname - Hostname of the device
+                fqdn - Fqdn of the device
+                os_version - String with the OS version running on the device.
+                serial_number - Serial number of the device
+                interface_list - List of the interfaces of the device
+        """
+
+        # Providing path for getting information from router
+        try:
+            path = {"/platform/chassis", "system/information", "system/name/host-name"}
+            interface_path = {"interface[name=*]"}
+            pathType = "STATE"
+
+            output = self.device._gnmiGet("", path, pathType)
+            interface_output = self.device._gnmiGet("", interface_path, pathType)
+
+            # defining output variables
+            interface_list = []
+            uptime = -1.0
+            version = ""
+            hostname = ""
+            serial_number = ""
+            chassis_type = ""
+            # getting interface names from the list
+            for interface in interface_output["srl_nokia-interfaces:interface"]:
+                interface_list.append(interface["name"])
+            # getting system and platform information
+            for key, value in output.items():
+                if "system" in key and isinstance(value, dict):
+                    for key_1, value_1 in value.items():
+                        if "information" in key_1:
+                            version = self._find_txt(value_1, "version")
+                            uptime = self._find_txt(value_1, "uptime")
+                            if uptime:
+                                uptime = datetime.datetime.strptime(
+                                    uptime, "%Y-%m-%dT%H:%M:%S.%fZ"
+                                ).timestamp()
+                            else:
+                                current_time = datetime.datetime.strptime(value_1["current-datetime"], "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
+                                last_boot = datetime.datetime.strptime(value_1["last-booted"], "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
+                                uptime = current_time - last_boot
+                        if "name" in key_1:
+                            hostname = self._find_txt(value_1, "host-name")
+                if "platform" in key and isinstance(value, dict):
+                    for key_1, value_1 in value.items():
+                        if "chassis" in key_1:
+                            chassis_type = self._find_txt(value_1, "type")
+                            serial_number = self._find_txt(value_1, "serial-number")
+            return {
+                "hostname": hostname,
+                "fqdn": hostname,
+                "vendor": u"Nokia",
+                "model": chassis_type,
+                "serial_number": serial_number,
+                "os_version": version,
+                "uptime": convert(float, uptime, default=-1.0),
+                "interface_list": interface_list,
+            }
+        except Exception as e:
+            logging.error("Error occurred : {}".format(e))
 
     # BGP peers
     def get_bgp_neighbors(self):
@@ -512,5 +562,111 @@ class CustomSRLDriver(NokiaSRLDriver):
                                     else:
                                         bgp_neighbor_detail[instance_name][peer_as_number] = [peer_data]
             return bgp_neighbor_detail
+        except Exception as e:
+            logging.error("Error occurred : {}".format(e))
+
+    def get_arp_table(self, vrf=""):
+        """
+            Returns a list of dictionaries having the following set of keys:
+                interface (string)
+                mac (string)
+                ip (string)
+                age (float)
+            ‘vrf’ of null-string will default to all VRFs.
+            Specific ‘vrf’ will return the ARP table entries for that VRFs
+             (including potentially ‘default’ or ‘global’).
+
+            In all cases the same data structure is returned and no reference to the VRF that was
+            used is included in the output.
+        """
+        try:
+            arp_table = []
+            subinterface_names = []
+
+            def _find_neighbors(is_ipv4, ip_dict):
+                ip_dict = eval(ip_dict.replace("'", '"'))
+                neighbor_list = self._find_txt(ip_dict, "neighbor")
+                if neighbor_list:
+                    neighbor_list = list(eval(neighbor_list))
+                    for neighbor in neighbor_list:
+                        ipv4_address = ""
+                        ipv6_address = ""
+                        timeout = -1.0
+                        reachable_time = -1.0
+                        if is_ipv4:
+                            ipv4_address = self._find_txt(neighbor, "ipv4-address")
+                            timeout = convert(
+                                float, self._find_txt(ip_dict, "timeout"), default=-1.0
+                            )
+                            if timeout == 14400.0 or timeout == -1.0:
+                                try:
+                                    ts = datetime.datetime.strptime(
+                                        neighbor["expiration-time"], "%Y-%m-%dT%H:%M:%S.%fZ"
+                                    )
+                                    timeout = float((ts - datetime.datetime.now()).seconds)
+                                except Exception as e:
+                                    logging.error("Error occurred : {}".format(e))
+                        else:
+                            ipv6_address = self._find_txt(neighbor, "ipv6-address")
+                            reachable_time = convert(
+                                float,
+                                self._find_txt(ip_dict, "reachable-time"),
+                                default=-1.0,
+                            )
+                        arp_table.append(
+                            {
+                                "interface": sub_interface_name,
+                                "mac": self._find_txt(neighbor, "link-layer-address"),
+                                "ip": ipv4_address if is_ipv4 else ipv6_address,
+                                "age": timeout if is_ipv4 else reachable_time,
+                            }
+                        )
+
+            if vrf:
+                vrf_path = {"network-instance[name={}]".format(vrf)}
+            else:
+                vrf_path = {"network-instance[name=*]"}
+            pathType = "STATE"
+            vrf_output = self.device._gnmiGet("", vrf_path, pathType)
+            if not vrf_output:
+                return []
+            for vrf in vrf_output["srl_nokia-network-instance:network-instance"]:
+                if "interface" in vrf.keys():
+                    subinterface_list = self._find_txt(vrf, "interface")
+                    subinterface_list = list(eval(subinterface_list))
+                    for dictionary in subinterface_list:
+                        if "name" in dictionary.keys():
+                            subinterface_names.append(self._find_txt(dictionary, "name"))
+
+            interface_path = {"interface[name=*]"}
+            interface_output = self.device._gnmiGet("", interface_path, pathType)
+
+            for interface in interface_output["srl_nokia-interfaces:interface"]:
+                interface_name = self._find_txt(interface, "name")
+                if interface_name:
+                    sub_interface = self._find_txt(interface, "subinterface")
+                    if sub_interface:
+                        sub_interface = list(eval(sub_interface))
+                        for dictionary in sub_interface:
+                            sub_interface_name = self._find_txt(dictionary, "name")
+                            if sub_interface_name in subinterface_names:
+                                ipv4_data = self._find_txt(dictionary, "ipv4")
+                                if ipv4_data:
+                                    ipv4_data = eval(ipv4_data.replace("'", '"'))
+                                    ipv4_arp_dict = self._find_txt(
+                                        ipv4_data, "srl_nokia-interfaces-nbr:arp"
+                                    )
+                                    if ipv4_arp_dict:
+                                        _find_neighbors(True, ipv4_arp_dict)
+
+                                ipv6_data = self._find_txt(dictionary, "ipv6")
+                                if ipv6_data:
+                                    ipv6_data = eval(ipv6_data.replace("'", '"'))
+                                    ipv6_neighbor_dict = self._find_txt(
+                                        ipv6_data, "srl_nokia-if-ip-nbr:neighbor-discovery"
+                                    )
+                                    if ipv6_neighbor_dict:
+                                        _find_neighbors(False, ipv6_neighbor_dict)
+            return arp_table
         except Exception as e:
             logging.error("Error occurred : {}".format(e))

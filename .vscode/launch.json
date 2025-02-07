@@ -8,7 +8,7 @@
             "program": "${workspaceFolder}/netprism/main.py",
             "pythonPath": "${workspaceFolder}/.venv/bin/python",
             "console": "integratedTerminal",
-            "justMyCode": true,
+            "justMyCode": false,
             "args": [
                 "-t",
                 "/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml",
@@ -34,7 +34,7 @@
                 "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
                 // "--inv-filter",
                 // "site=dc1",
-                // "--debug",
+                "--debug",
                 "sys-info"
             ],
         },
@@ -45,7 +45,7 @@
             "program": "${workspaceFolder}/netprism/main.py",
             "pythonPath": "${workspaceFolder}/.venv/bin/python",
             "console": "integratedTerminal",
-            "justMyCode": true,
+            "justMyCode": false,
             "args": [
                 "-t",
                 "/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml",
@@ -53,6 +53,7 @@
                 "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
                 // "--inv-filter",
                 // "site=dc1",
+                // "--debug",
                 "arp"
             ],
         },
@@ -63,7 +64,7 @@
             "program": "${workspaceFolder}/netprism/main.py",
             "pythonPath": "${workspaceFolder}/.venv/bin/python",
             "console": "integratedTerminal",
-            "justMyCode": true,
+            "justMyCode": false,
             "args": [
                 "-t",
                 "/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml",
@@ -88,7 +89,7 @@
                 "--cert-file",
                 "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
                 // "--inv-filter",
-                // "site=dc1",
+                // "site=dc2",
                 // "--debug",
                 "bgp-peers"
             ],

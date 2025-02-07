@@ -65,9 +65,6 @@ NORNIR_DEFAULT_CONFIG: Dict[str, Any] = {
             "num_workers": 20,
         },
     },
-    # "runner": {
-    #     "plugin": "serial",
-    # },
     "user_defined": {
         "intent_dir": "intent",
     },
@@ -106,6 +103,7 @@ def print_table(
         "bridged": "[blue]",
         "established": "[ok]",
         "active": "[cyan]",
+        "connect": "[warn]",
     }
 
 
@@ -351,7 +349,8 @@ def cli(
         }
         if cert_file:
             groups["srl"]["connection_options"]["napalm"]["extras"]["optional_args"]["tls_ca"] = cert_file
-
+        if debug:
+            NORNIR_DEFAULT_CONFIG.update({"runner": {"plugin": "serial"}})
         try:
             with tempfile.NamedTemporaryFile("w+") as hosts_f:
                 yaml.dump(hosts, hosts_f)
@@ -432,7 +431,7 @@ def sys_info(ctx: Context, field_filter: Optional[List] = None):
     """Displays System Info of nodes"""
 
     GET = 'facts'
-    HEADERS = [{'vendor':'vendor'}, {'model':'model'}, {'serial_number':'serial-number'}, {'os_version':'software-version'}, {'uptime':'uptime'}]
+    HEADERS = [{'vendor':'Vendor'}, {'model':'Model'}, {'serial_number':'Serial Number'}, {'os_version':'Software Version'}, {'uptime':'Uptime'}]
     EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
 
     def _sys_info(task: Task) -> Result:
@@ -546,7 +545,7 @@ def arp(ctx: Context, field_filter: Optional[List] = None):
     """Displays ARP table"""
 
     GET = 'arp_table'
-    HEADERS = [{'interface': 'interface'}, {'mac':'MAC'}, {'ip':'IPv4'}, {'Type':'Type'}, {'age':'expiry'}, {'vrf':'vrf'}]
+    HEADERS = [{'interface': 'Interface'}, {'mac':'MAC Address'}, {'ip':'IPv4'}, {'Type':'Type'}, {'age':'Expiry'}]
     EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
 
     def _arp(task: Task) -> Result:
@@ -607,7 +606,7 @@ def mac(ctx: Context, field_filter: Optional[List] = None):
     """Displays MAC table"""
 
     GET = 'get_mac_address_table'
-    HEADERS = [{'mac':'Address'}, {'interface':'Dest'}, {'vlan':'vlan'}, {'static':'static'}]
+    HEADERS = [{'mac':'MAC Address'}, {'interface':'Destination'}, {'vlan':'Vlan'}, {'static':'Static'}]
     EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
 
     def _mac(task: Task) -> Result:
