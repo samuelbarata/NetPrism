@@ -579,19 +579,17 @@ class CustomSRLDriver(NokiaSRLDriver):
             subinterface_names = []
 
             def _find_neighbors(is_ipv4, ip_dict):
-                ip_dict = eval(ip_dict.replace("'", '"'))
-                neighbor_list = self._find_txt(ip_dict, "neighbor")
+                neighbor_list = ip_dict.get("neighbor")
                 if neighbor_list:
-                    neighbor_list = list(eval(neighbor_list))
                     for neighbor in neighbor_list:
                         ipv4_address = ""
                         ipv6_address = ""
                         timeout = -1.0
                         reachable_time = -1.0
                         if is_ipv4:
-                            ipv4_address = self._find_txt(neighbor, "ipv4-address")
+                            ipv4_address = neighbor.get("ipv4-address")
                             timeout = convert(
-                                float, self._find_txt(ip_dict, "timeout"), default=-1.0
+                                float, ip_dict.get("timeout"), default=-1.0
                             )
                             if timeout == 14400.0 or timeout == -1.0:
                                 try:
@@ -602,16 +600,16 @@ class CustomSRLDriver(NokiaSRLDriver):
                                 except Exception as e:
                                     logging.error("Error occurred : {}".format(e))
                         else:
-                            ipv6_address = self._find_txt(neighbor, "ipv6-address")
+                            ipv6_address = neighbor.get("ipv6-address")
                             reachable_time = convert(
                                 float,
-                                self._find_txt(ip_dict, "reachable-time"),
+                                ip_dict.get("reachable-time"),
                                 default=-1.0,
                             )
                         arp_table.append(
                             {
                                 "interface": sub_interface_name,
-                                "mac": self._find_txt(neighbor, "link-layer-address"),
+                                "mac": neighbor.get("link-layer-address"),
                                 "ip": ipv4_address if is_ipv4 else ipv6_address,
                                 "age": timeout if is_ipv4 else reachable_time,
                             }
@@ -627,41 +625,30 @@ class CustomSRLDriver(NokiaSRLDriver):
                 return []
             for vrf in vrf_output["srl_nokia-network-instance:network-instance"]:
                 if "interface" in vrf.keys():
-                    subinterface_list = self._find_txt(vrf, "interface")
-                    subinterface_list = list(eval(subinterface_list))
+                    subinterface_list = vrf.get("interface")
                     for dictionary in subinterface_list:
                         if "name" in dictionary.keys():
-                            subinterface_names.append(self._find_txt(dictionary, "name"))
+                            subinterface_names.append(dictionary.get("name"))
 
             interface_path = {"interface[name=*]"}
             interface_output = self.device._gnmiGet("", interface_path, pathType)
 
-            for interface in interface_output["srl_nokia-interfaces:interface"]:
-                interface_name = self._find_txt(interface, "name")
-                if interface_name:
-                    sub_interface = self._find_txt(interface, "subinterface")
-                    if sub_interface:
-                        sub_interface = list(eval(sub_interface))
-                        for dictionary in sub_interface:
-                            sub_interface_name = self._find_txt(dictionary, "name")
-                            if sub_interface_name in subinterface_names:
-                                ipv4_data = self._find_txt(dictionary, "ipv4")
-                                if ipv4_data:
-                                    ipv4_data = eval(ipv4_data.replace("'", '"'))
-                                    ipv4_arp_dict = self._find_txt(
-                                        ipv4_data, "srl_nokia-interfaces-nbr:arp"
-                                    )
-                                    if ipv4_arp_dict:
-                                        _find_neighbors(True, ipv4_arp_dict)
+            for interface in interface_output.get("srl_nokia-interfaces:interface", []):
+                interface_name = interface.get("name")
+                if not interface_name:
+                    continue
 
-                                ipv6_data = self._find_txt(dictionary, "ipv6")
-                                if ipv6_data:
-                                    ipv6_data = eval(ipv6_data.replace("'", '"'))
-                                    ipv6_neighbor_dict = self._find_txt(
-                                        ipv6_data, "srl_nokia-if-ip-nbr:neighbor-discovery"
-                                    )
-                                    if ipv6_neighbor_dict:
-                                        _find_neighbors(False, ipv6_neighbor_dict)
+                for dictionary in interface.get("subinterface", []):
+                    sub_interface_name = dictionary.get("name")
+                    if sub_interface_name in subinterface_names:
+                        ipv4_arp_dict = dictionary.get("ipv4", {}).get("srl_nokia-interfaces-nbr:arp")
+                        if ipv4_arp_dict:
+                            _find_neighbors(True, ipv4_arp_dict)
+
+                        ipv6_neighbor_dict = dictionary.get("ipv6", {}).get("srl_nokia-if-ip-nbr:neighbor-discovery")
+                        if ipv6_neighbor_dict:
+                            _find_neighbors(False, ipv6_neighbor_dict)
+
             return arp_table
         except Exception as e:
             logging.error("Error occurred : {}".format(e))
