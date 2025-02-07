@@ -134,17 +134,17 @@ class CustomSRLDriver(NokiaSRLDriver):
                                 "ipv4": {
                                     "sent_prefixes": convert(
                                         int,
-                                        self._find_txt(ipv4_unicast, "sent-routes"),
+                                        ipv4_unicast.get("sent-routes"),
                                         default=-1,
                                     ),
                                     "received_prefixes": convert(
                                         int,
-                                        self._find_txt(ipv4_unicast, "received-routes"),
+                                        ipv4_unicast.get("received-routes"),
                                         default=-1,
                                     ),
                                     "accepted_prefixes": convert(
                                         int,
-                                        self._find_txt(ipv4_unicast, "active-routes"),
+                                        ipv4_unicast.get("active-routes"),
                                         default=-1,
                                     ),
                                 }
@@ -158,26 +158,26 @@ class CustomSRLDriver(NokiaSRLDriver):
                                 "ipv6": {
                                     "sent_prefixes": convert(
                                         int,
-                                        self._find_txt(ipv6_unicast, "sent-routes"),
+                                        ipv6_unicast.get("sent-routes"),
                                         default=-1,
                                     ),
                                     "received_prefixes": convert(
                                         int,
-                                        self._find_txt(ipv6_unicast, "received-routes"),
+                                        ipv6_unicast.get("received-routes"),
                                         default=-1,
                                     ),
                                     "accepted_prefixes": convert(
                                         int,
-                                        self._find_txt(ipv6_unicast, "active-routes"),
+                                        ipv6_unicast.get("active-routes"),
                                         default=-1,
                                     ),
                                 }
                             }
                         )
                 else:
-                    ipv4_unicast = list(filter(lambda x: x['afi-safi-name'] == 'srl_nokia-common:ipv4-unicast', afi_safi))[0]
-                    ipv6_unicast = list(filter(lambda x: x['afi-safi-name'] == 'srl_nokia-common:ipv6-unicast', afi_safi))[0]
-                    evpn = list(filter(lambda x: x['afi-safi-name'] == 'srl_nokia-common:evpn', afi_safi))[0]
+                    ipv4_unicast = next((x for x in afi_safi if x['afi-safi-name'] == 'srl_nokia-common:ipv4-unicast'), None)
+                    ipv6_unicast = next((x for x in afi_safi if x['afi-safi-name'] == 'srl_nokia-common:ipv6-unicast'), None)
+                    evpn = next((x for x in afi_safi if x['afi-safi-name'] == 'srl_nokia-common:evpn'), None)
                     if ipv4_unicast['admin-state'] == 'enable':
                         prefix_limit.update(
                             {
@@ -210,15 +210,6 @@ class CustomSRLDriver(NokiaSRLDriver):
                                 }
                             }
                         )
-                    # else:
-                    #     prefix_limit.update(
-                    #         {
-                    #             "ipv4": {
-                    #                 "admin_state": ipv4_unicast['admin-state'],
-                    #                 "oper_state": ipv4_unicast['oper-state'],
-                    #             }
-                    #         }
-                    #     )
                     if ipv6_unicast['admin-state'] == 'enable':
                         prefix_limit.update(
                             {
@@ -251,15 +242,6 @@ class CustomSRLDriver(NokiaSRLDriver):
                                 }
                             }
                         )
-                    # else:
-                    #     prefix_limit.update(
-                    #         {
-                    #             "ipv6": {
-                    #                 "admin_state": ipv6_unicast['admin-state'],
-                    #                 "oper_state": ipv6_unicast['oper-state'],
-                    #             }
-                    #         }
-                    #     )
                     if evpn['admin-state'] == 'enable':
                         prefix_limit.update(
                             {
@@ -292,15 +274,6 @@ class CustomSRLDriver(NokiaSRLDriver):
                                 }
                             }
                         )
-                    # else:
-                    #     prefix_limit.update(
-                    #         {
-                    #             "evpn": {
-                    #                 "admin_state": evpn['admin-state'],
-                    #                 "oper_state": evpn['oper-state'],
-                    #             }
-                    #         }
-                    #     )
                 return prefix_limit
 
             path = {"/network-instance[name=*]"}
@@ -310,94 +283,53 @@ class CustomSRLDriver(NokiaSRLDriver):
             system_output = self.device._gnmiGet("", system_path, pathType)
 
             for key, value in system_output["srl_nokia-system:system"].items():
-                system_date_time = self._find_txt(value, "current-datetime")
+                system_date_time = value.get("current-datetime")
                 if system_date_time:
-                    system_date_time = datetime.datetime.strptime(
-                        system_date_time, "%Y-%m-%dT%H:%M:%S.%fZ"
-                    ).timestamp()
+                    system_date_time = datetime.datetime.strptime(system_date_time, "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
 
             for network_instance in output["srl_nokia-network-instance:network-instance"]:
-                instance_name = self._find_txt(network_instance, "name")
-                router_id = self._find_txt(network_instance, "router-id")
-                global_autonomous_system_number = self._find_txt(
-                    network_instance, "autonomous-system",
-                )
+                instance_name = network_instance.get("name")
+                router_id = network_instance.get("router-id")
+                global_autonomous_system_number = network_instance.get("autonomous-system")
                 bgp_neighbors.update({instance_name: {"router_id": router_id, "peers": {}}})
-                protocols = self._find_txt(network_instance, "protocols")
-                if protocols:
-                    protocols = eval(protocols.replace("'", '"'))
-                    bgp_dict = self._find_txt(protocols, "srl_nokia-bgp:bgp")
-                    if bgp_dict:
-                        bgp_dict = eval(bgp_dict.replace("'", '"'))
-                        bgp_neighbors_list = self._find_txt(bgp_dict, "neighbor")
-                        if bgp_neighbors_list:
-                            bgp_neighbors_list = list(
-                                eval(bgp_neighbors_list.replace("'", '"'))
-                            )
-                            for bgp_neighbor in bgp_neighbors_list:
-                                peer_ip = self._find_txt(bgp_neighbor, "peer-address")
-                                if peer_ip:
-                                    local_as = self._find_txt(bgp_neighbor, "local-as")
-                                    explicit_peer_as = self._find_txt(
-                                        bgp_neighbor, "peer-as"
-                                    )
+                protocols = network_instance.get("protocols")
+                bgp_neighbors_list = protocols.get("srl_nokia-bgp:bgp", {}).get("neighbor", [])
+                for bgp_neighbor in bgp_neighbors_list:
+                    peer_ip = bgp_neighbor.get("peer-address")
+                    if peer_ip:
+                        local_as = bgp_neighbor.get("local-as")
+                        explicit_peer_as = bgp_neighbor.get("peer-as")
 
-                                    local_as_number = -1
-                                    peer_as_number = (
-                                        explicit_peer_as
-                                        if explicit_peer_as
-                                        else global_autonomous_system_number
-                                    )
-                                    if local_as:
-                                        local_as = [eval(local_as.replace("'", '"'))]
-
-                                        for dictionary in local_as:
-                                            explicit_local_as_number = self._find_txt(
-                                                dictionary, "as-number"
-                                            )
-                                            local_as_number = (
-                                                explicit_local_as_number
-                                                if explicit_local_as_number
-                                                else global_autonomous_system_number
-                                            )
-                                    last_established = self._find_txt(
-                                        bgp_neighbor, "last-established"
-                                    )
-                                    if last_established:
-                                        last_established = datetime.datetime.strptime(
-                                            last_established, "%Y-%m-%dT%H:%M:%S.%fZ"
-                                        ).timestamp()
-                                    bgp_neighbors[instance_name]["peers"].update(
-                                        {
-                                            peer_ip: {
-                                                "local_as": as_number(local_as_number),
-                                                "remote_as": as_number(peer_as_number),
-                                                "remote_id": peer_ip,
-                                                "is_up": True
-                                                if self._find_txt(
-                                                    bgp_neighbor, "session-state"
-                                                )
-                                                   == "established"
-                                                else False,
-                                                "is_enabled": True
-                                                if self._find_txt(
-                                                    bgp_neighbor, "admin-state"
-                                                )
-                                                   == "enable"
-                                                else False,
-                                                "description": self._find_txt(
-                                                    bgp_neighbor, "description"
-                                                ),
-                                                "uptime": convert(
-                                                    int,
-                                                    (system_date_time - last_established) if isinstance(last_established,
-                                                                                                        float) else -1,
-                                                    default=-1,
-                                                ),
-                                                "address_family": _build_prefix_dict(),
-                                            }
-                                        }
-                                    )
+                        local_as_number = -1
+                        peer_as_number = (
+                            explicit_peer_as
+                            if explicit_peer_as
+                            else global_autonomous_system_number
+                        )
+                        if local_as:
+                            explicit_local_as_number = local_as.get("as-number")
+                        local_as_number = (
+                            explicit_local_as_number
+                            if explicit_local_as_number
+                            else global_autonomous_system_number
+                        )
+                        last_established = bgp_neighbor.get("last-established")
+                        if last_established:
+                            last_established = datetime.datetime.strptime(last_established, "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
+                        bgp_neighbors[instance_name]["peers"].update(
+                            {
+                                peer_ip: {
+                                    "local_as": as_number(local_as_number),
+                                    "remote_as": as_number(peer_as_number),
+                                    "remote_id": peer_ip,
+                                    "is_up": bgp_neighbor.get("session-state") == "established",
+                                    "is_enabled": bgp_neighbor.get("admin-state") == "enable",
+                                    "description": bgp_neighbor.get("description"),
+                                    "uptime": convert(int, (system_date_time - last_established) if isinstance(last_established, float) else -1, default=-1),
+                                    "address_family": _build_prefix_dict(),
+                                }
+                            }
+                        )
 
             return bgp_neighbors
         except Exception as e:
@@ -455,244 +387,175 @@ class CustomSRLDriver(NokiaSRLDriver):
             output = self.device._gnmiGet("", path, pathType)
 
             for network_instance in output["srl_nokia-network-instance:network-instance"]:
-                instance_name = self._find_txt(network_instance, "name")
-                router_id = self._find_txt(network_instance, "router-id")
-                global_autonomous_system_number = self._find_txt(
-                    network_instance, "autonomous-system",
-                )
-                protocols = self._find_txt(network_instance, "protocols")
-                if protocols:
-                    protocols = eval(protocols.replace("'", '"'))
-                    bgp_dict = self._find_txt(protocols, "srl_nokia-bgp:bgp")
-                    if bgp_dict:
-                        bgp_dict = eval(bgp_dict.replace("'", '"'))
-                        bgp_neighbors_list = self._find_txt(bgp_dict, "neighbor")
-                        if bgp_neighbors_list:
-                            bgp_neighbors_list = list(
-                                eval(bgp_neighbors_list.replace("'", '"'))
+                instance_name = network_instance.get("name")
+                router_id = network_instance.get("router-id")
+                global_autonomous_system_number = network_instance.get("autonomous-system")
+
+                bgp_neighbors_list = network_instance.get("protocols", {}).get("srl_nokia-bgp:bgp", {}).get("neighbor", [])
+                bgp_neighbor_detail[instance_name] = {}
+                for bgp_neighbor in bgp_neighbors_list:
+                    peer_ip = bgp_neighbor.get("peer-address")
+                    if peer_ip:
+                        if neighbor_address and not neighbor_address == peer_ip:
+                            continue
+                        local_as = bgp_neighbor.get("local-as")
+                        explicit_peer_as = bgp_neighbor.get("peer-as")
+                        local_as_number = -1
+                        peer_as_number = (
+                            explicit_peer_as
+                            if explicit_peer_as
+                            else global_autonomous_system_number
+                        )
+
+                        if local_as:
+                            explicit_local_as_number = local_as.get("as-number")
+                        local_as_number = (
+                            explicit_local_as_number
+                            if explicit_local_as_number
+                            else global_autonomous_system_number
+                        )
+                        transport = bgp_neighbor.get("transport")
+                        local_address = ""
+                        if transport:
+                            local_address = transport.get("local-address")
+                        timers = bgp_neighbor.get("timers")
+                        sent_messages = bgp_neighbor.get("sent-messages")
+                        received_messages = bgp_neighbor.get("received-messages")
+
+                        ipv4_unicast = next((x for x in bgp_neighbor['afi-safi'] if x['afi-safi-name'] == 'srl_nokia-common:ipv4-unicast'), None)
+                        active_ipv4 = ipv4_unicast.get('active-routes', -1)
+                        received_ipv4 = ipv4_unicast.get('received-routes', -1)
+                        suppressed_ipv4 = ipv4_unicast.get('rejected-routes', -1)
+                        advertised_ipv4 = ipv4_unicast.get('sent-routes', -1)
+                        evpn = next((x for x in bgp_neighbor['afi-safi'] if x['afi-safi-name'] == 'srl_nokia-common:evpn'), None)
+                        active_evpn = evpn.get('active-routes', -1)
+                        received_evpn = evpn.get('received-routes', -1)
+                        suppressed_evpn = evpn.get('rejected-routes', -1)
+                        advertised_evpn = evpn.get('sent-routes', -1)
+                        ipv6_unicast = next((x for x in bgp_neighbor['afi-safi'] if x['afi-safi-name'] == 'srl_nokia-common:ipv6-unicast'), None)
+                        active_ipv6 = ipv6_unicast.get('active-routes', -1)
+                        received_ipv6 = ipv6_unicast.get('received-routes', -1)
+                        suppressed_ipv6 = ipv6_unicast.get('rejected-routes', -1)
+                        advertised_ipv6 = ipv6_unicast.get('sent-routes', -1)
+
+                        active_prefix_count = -1
+                        received_prefix_count = -1
+                        accepted_prefix_count = -1
+                        suppressed_prefix_count = -1
+                        advertised_prefix_count = -1
+
+                        if active_ipv4 != -1:
+                            active_prefix_count = active_ipv4
+                            received_prefix_count = received_ipv4
+                            accepted_prefix_count = active_ipv4
+                            suppressed_prefix_count = suppressed_ipv4
+                            advertised_prefix_count = advertised_ipv4
+                        elif active_evpn != -1:
+                            active_prefix_count = active_evpn
+                            received_prefix_count = received_evpn
+                            accepted_prefix_count = active_evpn
+                            suppressed_prefix_count = suppressed_evpn
+                            advertised_prefix_count = advertised_evpn
+                        elif active_ipv6 != -1:
+                            active_prefix_count = active_ipv6
+                            received_prefix_count = received_ipv6
+                            accepted_prefix_count = active_ipv6
+                            suppressed_prefix_count = suppressed_ipv6
+                            advertised_prefix_count = advertised_ipv6
+
+                        peer_data = {
+                            "up": bgp_neighbor.get("session-state") == "established",
+                            "local_as": as_number(local_as_number),
+                            "remote_as": as_number(peer_as_number),
+                            "router_id": router_id,
+                            "local_address": local_address,
+                            "routing_table": bgp_neighbor.get("peer-group"),
+                            "local_address_configured": False if local_address else True,
+                            "local_port": convert(
+                                int,
+                                transport.get("local-port"),
+                                default=-1,
                             )
-                            bgp_neighbor_detail[instance_name] = {}
-                            for bgp_neighbor in bgp_neighbors_list:
-                                peer_ip = self._find_txt(bgp_neighbor, "peer-address")
-                                if peer_ip:
-                                    if neighbor_address and not neighbor_address == peer_ip:
-                                        continue
-                                    local_as = self._find_txt(bgp_neighbor, "local-as")
-                                    explicit_peer_as = self._find_txt(
-                                        bgp_neighbor, "peer-as"
-                                    )
-                                    local_as_number = -1
-                                    peer_as_number = (
-                                        explicit_peer_as
-                                        if explicit_peer_as
-                                        else global_autonomous_system_number
-                                    )
-
-                                    if local_as:
-                                        local_as = [eval(local_as.replace("'", '"'))]
-                                        for dictionary in local_as:
-                                            explicit_local_as_number = self._find_txt(
-                                                dictionary, "as-number"
-                                            )
-                                            local_as_number = (
-                                                explicit_local_as_number
-                                                if explicit_local_as_number
-                                                else global_autonomous_system_number
-                                            )
-                                    transport = self._str_to_dict(
-                                        self._find_txt(bgp_neighbor, "transport")
-                                    )
-                                    local_address = ""
-                                    if transport:
-                                        local_address = self._find_txt(
-                                            transport, "local-address"
-                                        )
-                                    timers = self._str_to_dict(
-                                        self._find_txt(bgp_neighbor, "timers")
-                                    )
-                                    sent_messages = self._str_to_dict(
-                                        self._find_txt(bgp_neighbor, "sent-messages")
-                                    )
-                                    received_messages = self._str_to_dict(
-                                        self._find_txt(
-                                            bgp_neighbor, "received-messages"
-                                        )
-                                    )
-
-                                    ipv4_unicast = list(filter(lambda x: x['afi-safi-name'] == 'srl_nokia-common:ipv4-unicast', bgp_neighbor['afi-safi']))[0]
-                                    active_ipv4 = ipv4_unicast.get('active-routes', -1)
-                                    received_ipv4 = ipv4_unicast.get('received-routes', -1)
-                                    suppressed_ipv4 = ipv4_unicast.get('rejected-routes', -1)
-                                    advertised_ipv4 = ipv4_unicast.get('sent-routes', -1)
-                                    evpn = list(filter(lambda x: x['afi-safi-name'] == 'srl_nokia-common:evpn', bgp_neighbor['afi-safi']))[0]
-                                    active_evpn = evpn.get('active-routes', -1)
-                                    received_evpn = evpn.get('received-routes', -1)
-                                    suppressed_evpn = evpn.get('rejected-routes', -1)
-                                    advertised_evpn = evpn.get('sent-routes', -1)
-                                    ipv6_unicast = list(filter(lambda x: x['afi-safi-name'] == 'srl_nokia-common:ipv6-unicast', bgp_neighbor['afi-safi']))[0]
-                                    active_ipv6 = ipv6_unicast.get('active-routes', -1)
-                                    received_ipv6 = ipv6_unicast.get('received-routes', -1)
-                                    suppressed_ipv6 = ipv6_unicast.get('rejected-routes', -1)
-                                    advertised_ipv6 = ipv6_unicast.get('sent-routes', -1)
-
-                                    active_prefix_count = -1
-                                    received_prefix_count = -1
-                                    accepted_prefix_count = -1
-                                    suppressed_prefix_count = -1
-                                    advertised_prefix_count = -1
-
-                                    if active_ipv4 != -1:
-                                        active_prefix_count = active_ipv4
-                                        received_prefix_count = received_ipv4
-                                        accepted_prefix_count = active_ipv4
-                                        suppressed_prefix_count = suppressed_ipv4
-                                        advertised_prefix_count = advertised_ipv4
-                                    elif active_evpn != -1:
-                                        active_prefix_count = active_evpn
-                                        received_prefix_count = received_evpn
-                                        accepted_prefix_count = active_evpn
-                                        suppressed_prefix_count = suppressed_evpn
-                                        advertised_prefix_count = advertised_evpn
-                                    elif active_ipv6 != -1:
-                                        active_prefix_count = active_ipv6
-                                        received_prefix_count = received_ipv6
-                                        accepted_prefix_count = active_ipv6
-                                        suppressed_prefix_count = suppressed_ipv6
-                                        advertised_prefix_count = advertised_ipv6
-
-                                    peer_data = {
-                                        "up": True
-                                        if self._find_txt(
-                                            bgp_neighbor, "session-state"
-                                        )
-                                           == "established"
-                                        else False,
-                                        "local_as": as_number(local_as_number),
-                                        "remote_as": as_number(peer_as_number),
-                                        "router_id": router_id,
-                                        "local_address": local_address,
-                                        "routing_table": self._find_txt(
-                                            bgp_neighbor, "peer-group"
-                                        ),
-                                        "local_address_configured": False
-                                        if local_address
-                                        else True,
-                                        "local_port": convert(
-                                            int,
-                                            self._find_txt(transport, "local-port"),
-                                            default=-1,
-                                        )
-                                        if transport
-                                        else -1,
-                                        "remote_address": peer_ip,
-                                        "remote_port": convert(
-                                            int,
-                                            self._find_txt(
-                                                transport, "remote-port"
-                                            ),
-                                            default=-1,
-                                        ),
-                                        "multihop": False,  # Not yet supported in SRLinux
-                                        "multipath": False,  # Not yet supported in SRLinux
-                                        "remove_private_as": False,  # Not yet supported in SRLinux
-                                        "import_policy": self._find_txt(
-                                            bgp_neighbor, "import-policy"
-                                        ),
-                                        "export_policy": self._find_txt(
-                                            bgp_neighbor, "export-policy"
-                                        ),
-                                        "input_messages": convert(
-                                            int,
-                                            self._find_txt(
-                                                received_messages, "total-messages"
-                                            ),
-                                            default=-1,
-                                        ),
-                                        "output_messages": convert(
-                                            int,
-                                            self._find_txt(
-                                                sent_messages, "total-messages"
-                                            ),
-                                            default=-1,
-                                        ),
-                                        "input_updates": convert(
-                                            int,
-                                            self._find_txt(
-                                                received_messages, "total-updates"
-                                            ),
-                                            default=-1,
-                                        ),
-                                        "output_updates": convert(
-                                            int,
-                                            self._find_txt(
-                                                sent_messages, "total-updates"
-                                            ),
-                                            default=-1,
-                                        ),
-                                        "messages_queued_out": convert(
-                                            int,
-                                            self._find_txt(
-                                                sent_messages, "queue-depth"
-                                            ),
-                                            default=-1,
-                                        ),
-                                        "connection_state": self._find_txt(
-                                            bgp_neighbor, "session-state"
-                                        ),
-                                        "previous_connection_state": self._find_txt(
-                                            bgp_neighbor, "last-state"
-                                        ),
-                                        "last_event": self._find_txt(
-                                            bgp_neighbor, "last-event"
-                                        ),
-                                        "suppress_4byte_as": False,  # Not yet supported in SRLinux
-                                        "local_as_prepend": convert(
-                                            bool,
-                                            self._find_txt(
-                                                local_as, "prepend-local-as"
-                                            ),
-                                            default=False,
-                                        ),
-                                        "holdtime": convert(
-                                            int,
-                                            self._find_txt(timers, "hold-time"),
-                                            default=-1,
-                                        ),
-                                        "configured_holdtime": convert(
-                                            int,
-                                            self._find_txt(
-                                                timers, "negotiated-hold-time"
-                                            ),
-                                            default=-1,
-                                        ),
-                                        "keepalive": convert(
-                                            int,
-                                            self._find_txt(
-                                                timers, "keepalive-interval"
-                                            ),
-                                            default=-1,
-                                        ),
-                                        "configured_keepalive": convert(
-                                            int,
-                                            self._find_txt(
-                                                timers,
-                                                "negotiated-keepalive-interval",
-                                            ),
-                                            default=-1,
-                                        ),
-                                        "active_prefix_count": active_prefix_count,
-                                        "received_prefix_count": received_prefix_count,
-                                        "accepted_prefix_count": accepted_prefix_count,
-                                        "suppressed_prefix_count": suppressed_prefix_count,
-                                        "advertised_prefix_count": advertised_prefix_count,
-                                        "flap_count": -1,  # Not yet supported in SRLinux
-                                    }
-                                    # )
-                                    peer_as_number = as_number(peer_as_number)
-                                    if peer_as_number in bgp_neighbor_detail[instance_name]:
-                                        bgp_neighbor_detail[instance_name][peer_as_number].append(peer_data)
-                                    else:
-                                        bgp_neighbor_detail[instance_name][peer_as_number] = [peer_data]
+                            if transport
+                            else -1,
+                            "remote_address": peer_ip,
+                            "remote_port": convert(
+                                int,
+                                transport.get("remote-port"),
+                                default=-1,
+                            ),
+                            "multihop": False,  # Not yet supported in SRLinux
+                            "multipath": False,  # Not yet supported in SRLinux
+                            "remove_private_as": False,  # Not yet supported in SRLinux
+                            "import_policy": bgp_neighbor.get("import-policy"),
+                            "export_policy": bgp_neighbor.get("export-policy"),
+                            "input_messages": convert(
+                                int,
+                                received_messages.get("total-messages"),
+                                default=-1,
+                            ),
+                            "output_messages": convert(
+                                int,
+                                sent_messages.get("total-messages"),
+                                default=-1,
+                            ),
+                            "input_updates": convert(
+                                int,
+                                received_messages.get("total-updates"),
+                                default=-1,
+                            ),
+                            "output_updates": convert(
+                                int,
+                                sent_messages.get("total-updates"),
+                                default=-1,
+                            ),
+                            "messages_queued_out": convert(
+                                int,
+                                sent_messages.get("queue-depth"),
+                                default=-1,
+                            ),
+                            "connection_state": bgp_neighbor.get("session-state"),
+                            "previous_connection_state": bgp_neighbor.get("last-state"),
+                            "last_event": bgp_neighbor.get("last-event"),
+                            "suppress_4byte_as": False,  # Not yet supported in SRLinux
+                            "local_as_prepend": convert(
+                                bool,
+                                local_as.get("prepend-local-as"),
+                                default=False,
+                            ),
+                            "holdtime": convert(
+                                int,
+                                timers.get("hold-time"),
+                                default=-1,
+                            ),
+                            "configured_holdtime": convert(
+                                int,
+                                timers.get("negotiated-hold-time"),
+                                default=-1,
+                            ),
+                            "keepalive": convert(
+                                int,
+                                timers.get("keepalive-interval"),
+                                default=-1,
+                            ),
+                            "configured_keepalive": convert(
+                                int,
+                                timers.get("negotiated-keepalive-interval",),
+                                default=-1,
+                            ),
+                            "active_prefix_count": active_prefix_count,
+                            "received_prefix_count": received_prefix_count,
+                            "accepted_prefix_count": accepted_prefix_count,
+                            "suppressed_prefix_count": suppressed_prefix_count,
+                            "advertised_prefix_count": advertised_prefix_count,
+                            "flap_count": -1,  # Not yet supported in SRLinux
+                        }
+                        # )
+                        peer_as_number = as_number(peer_as_number)
+                        if peer_as_number in bgp_neighbor_detail[instance_name]:
+                            bgp_neighbor_detail[instance_name][peer_as_number].append(peer_data)
+                        else:
+                            bgp_neighbor_detail[instance_name][peer_as_number] = [peer_data]
             return bgp_neighbor_detail
         except Exception as e:
             logging.error("Error occurred : {}".format(e))
