@@ -5,9 +5,6 @@ from napalm.base.helpers import convert, as_number
 import logging
 import datetime
 
-
-# import requests
-
 class CustomSRLDriver(NokiaSRLDriver):
     def __init__(self, hostname, username, password, timeout=60, optional_args=None):
         opt_args = {
@@ -16,6 +13,14 @@ class CustomSRLDriver(NokiaSRLDriver):
             "insecure": False,
         }
         opt_args.update(optional_args)
+
+        logging.basicConfig(
+            filename="srlinux.log",  # Log file name
+            level=logging.WARNING,  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            format="%(asctime)s - %(levelname)s - %(message)s",  # Log format
+            datefmt="%Y-%m-%d %H:%M:%S",  # Date format
+        )
+
         super().__init__(hostname, username, password, timeout, opt_args)
 
     def get_facts(self):
@@ -33,45 +38,43 @@ class CustomSRLDriver(NokiaSRLDriver):
 
         # Providing path for getting information from router
         try:
-            path = {"/platform/chassis", "system/information", "system/name/host-name"}
-            interface_path = {"interface[name=*]"}
+            path = ("/platform/chassis", "system/information", "system/name/host-name")
+            interface_path = ("interface[name=*]",)
             pathType = "STATE"
 
             output = self.device._gnmiGet("", path, pathType)
             interface_output = self.device._gnmiGet("", interface_path, pathType)
 
+            interface_list = [iface["name"] for iface in interface_output.get("srl_nokia-interfaces:interface", [])]
+
             # defining output variables
-            interface_list = []
             uptime = -1.0
             version = ""
             hostname = ""
             serial_number = ""
             chassis_type = ""
-            # getting interface names from the list
-            for interface in interface_output["srl_nokia-interfaces:interface"]:
-                interface_list.append(interface["name"])
+
             # getting system and platform information
             for key, value in output.items():
                 if "system" in key and isinstance(value, dict):
                     for key_1, value_1 in value.items():
                         if "information" in key_1:
-                            version = self._find_txt(value_1, "version")
-                            uptime = self._find_txt(value_1, "uptime")
+                            version = value_1.get("version")
+                            uptime = value_1.get("uptime")
                             if uptime:
-                                uptime = datetime.datetime.strptime(
-                                    uptime, "%Y-%m-%dT%H:%M:%S.%fZ"
-                                ).timestamp()
+                                uptime = datetime.datetime.strptime(uptime, "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
                             else:
                                 current_time = datetime.datetime.strptime(value_1["current-datetime"], "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
                                 last_boot = datetime.datetime.strptime(value_1["last-booted"], "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
-                                uptime = current_time - last_boot
-                        if "name" in key_1:
-                            hostname = self._find_txt(value_1, "host-name")
+                                uptime = current_time - last_boot if current_time and last_boot else -1.0
+
+                        hostname = value.get("name", {}).get("host-name", "")
+
                 if "platform" in key and isinstance(value, dict):
                     for key_1, value_1 in value.items():
                         if "chassis" in key_1:
-                            chassis_type = self._find_txt(value_1, "type")
-                            serial_number = self._find_txt(value_1, "serial-number")
+                            chassis_type = value_1.get("type")
+                            serial_number = value_1.get("serial-number")
             return {
                 "hostname": hostname,
                 "fqdn": hostname,
