@@ -735,5 +735,66 @@ def bgp_peers(ctx: Context, field_filter: Optional[List] = None):
     )
 
 
+@cli.command()
+@click.pass_context
+@click.option(
+    "--field-filter",
+    "-f",
+    multiple=True,
+    help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
+)
+def users(ctx: Context, field_filter: Optional[List] = None):
+    """Displays Users table"""
+
+    GET = 'get_users'
+    HEADERS = [{'_default':'User'}, {'level':'Level'}, {'password': 'Password'}, {'sshkeys': 'SSH Keys'}]
+    EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
+
+    def _users(task: Task) -> Result:
+        return napalm_get(task=task, getters=[GET])
+
+    f_filter = (
+        {k: v for k, v in [f.split("=") for f in field_filter]} if field_filter else {}
+    )
+
+    result = ctx.obj["target"].run(
+        task=_users, name=GET, raise_on_error=False
+    )
+
+    if(ctx.obj['debug']):
+        print_result(result)
+
+    def _process_results(res: AggregatedResult) -> AggregatedResult:
+        ret = {}
+        for node in res:
+            if res[node].failed:
+                continue
+            node_ret = []
+            for k in res[node].result[GET]:
+                dev_result = res[node].result[GET][k]
+                new_res = {HEADERS[0]['_default']: k}
+
+                for key in dev_result:
+                    if key in EXISTING_HEADERS:
+                        if key == 'password':
+                            new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: dev_result[key]!=None and dev_result[key]!=''})
+                        else:
+                            new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: dev_result[key]})
+                node_ret.append(new_res)
+            ret[node] = node_ret
+        return ret
+
+    processed_result = _process_results(result)
+
+    print_report(
+        processed_result=processed_result,
+        result=result,
+        headers=HEADERS,
+        name="Users table",
+        box_type=ctx.obj["box_type"],
+        f_filter=f_filter,
+        i_filter=ctx.obj["i_filter"],
+    )
+
 if __name__ == "__main__":
     cli(obj={})
