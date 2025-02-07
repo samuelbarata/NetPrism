@@ -5,6 +5,7 @@ from fnmatch import fnmatch
 import sys
 import tempfile
 from datetime import timedelta
+from copy import deepcopy
 
 from ruamel.yaml import YAML
 
@@ -791,6 +792,91 @@ def users(ctx: Context, field_filter: Optional[List] = None):
         result=result,
         headers=HEADERS,
         name="Users table",
+        box_type=ctx.obj["box_type"],
+        f_filter=f_filter,
+        i_filter=ctx.obj["i_filter"],
+    )
+
+@cli.command()
+@click.pass_context
+@click.option(
+    "--field-filter",
+    "-f",
+    multiple=True,
+    help='filter fields with <field-name>=<glob-pattern>, e.g. -f state=up -f admin_state="ena*". Fieldnames correspond to column names of a report',
+)
+def ni(ctx: Context, field_filter: Optional[List] = None):
+    """Displays Network Instances"""
+
+    GET = ['get_network_instances', 'get_interfaces', 'get_interfaces_ip']
+    # HEADERS = {'name': 'Name', 'type':'Type', 'interfaces':'Sub-Interfaces', 'mtu': 'MTU', 'speed':'Speed', 'description':'Description', 'ip_prefix': 'IP Prefix', 'mac_address': 'MAC Address'}
+    HEADERS = [{'name': 'Name'}, {'type':'Type'}, {'interfaces':'Sub-Interfaces'}, {'mtu': 'MTU'}, {'speed':'Speed'}, {'description':'Description'}, {'ip_prefix': 'IP Prefix'}, {'mac_address': 'MAC Address'}]
+    EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
+    # EXISTING_HEADERS = list(HEADERS.keys())
+
+    def _ni(task: Task) -> Result:
+        return napalm_get(task=task, getters=GET)
+
+    f_filter = (
+        {k: v for k, v in [f.split("=") for f in field_filter]} if field_filter else {}
+    )
+    result = ctx.obj["target"].run(
+        task=_ni, name=GET, raise_on_error=False
+    )
+
+    if(ctx.obj['debug']):
+        print_result(result)
+
+    def _process_results(res: AggregatedResult) -> AggregatedResult:
+        ret = {}
+        for node in res:
+            if res[node].failed:
+                continue
+            node_ret = []
+            for k in res[node].result['get_network_instances']:
+                dev_result = res[node].result['get_network_instances'][k]
+                new_res = {}
+                for key in dev_result:
+                    if key in EXISTING_HEADERS:
+                        new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: dev_result[key]})
+
+                new_res['Type'] = new_res['Type'].replace('srl_nokia-network-instance:', '')
+                for sub_if in dev_result['interfaces']['interface']:
+                    tmp = deepcopy(new_res)
+                    tmp['Sub-Interfaces'] = sub_if
+
+                    if sub_if in res[node].result['get_interfaces']:
+                        int_restuls = res[node].result['get_interfaces'][sub_if]
+                    elif sub_if.split('.')[0] in res[node].result['get_interfaces']:
+                        int_restuls = res[node].result['get_interfaces'][sub_if.split('.')[0]]
+                    else:
+                        int_restuls = {}
+                    for int_key in int_restuls:
+                        if int_key in EXISTING_HEADERS:
+                            if int_key == 'description' and int_restuls[int_key] == '':
+                                continue
+                            tmp.update({HEADERS[EXISTING_HEADERS.index(int_key)][int_key]: int_restuls[int_key]})
+                    if sub_if in res[node].result['get_interfaces_ip']:
+                        int_ip = res[node].result['get_interfaces_ip'][sub_if]
+                    else:
+                        int_ip = {}
+
+                    int_ips = [f"{addr}/{int_ip[family][addr]['prefix_length']}" for family in int_ip for addr in int_ip[family]]
+                    if len(int_ips) > 0:
+                        tmp[HEADERS[EXISTING_HEADERS.index('ip_prefix')]['ip_prefix']] = int_ips
+
+                    node_ret.append(tmp)
+
+            ret[node] = node_ret
+        return ret
+
+    processed_result = _process_results(result)
+
+    print_report(
+        processed_result=processed_result,
+        result=result,
+        name="Network Instances",
+        headers=HEADERS,
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
