@@ -662,19 +662,18 @@ def mac(ctx: Context, field_filter: Optional[List] = None):
 def bgp_peers(ctx: Context, field_filter: Optional[List] = None):
     """Displays BGP Peers and their status"""
 
-    GET = 'get_bgp_neighbors_detail'
-    HEADERS = [{'_default':'VRF'}, {'remote_address':'Peer'}, {'Rx/Act/Tx':'Rx/Act/Tx'}, {'export_policy':'Export Policy'}, {'routing_table':'Group'}, {'import_policy':'Import Policy'}, {'local_as':'Local AS'}, {'peer_as':'Remote AS'}, {'connection_state':'State'}]
+    HEADERS = [{'_default':'VRF'}, {'remote_address':'Peer'}, {'evpn':'EVPN\nRx/Act/Tx'}, {'ipv4':'IPv4\nRx/Act/Tx'}, {'ipv6':'IPv6\nRx/Act/Tx'}, {'export_policy':'Export Policy'}, {'routing_table':'Group'}, {'import_policy':'Import Policy'}, {'local_as':'Local AS'}, {'remote_as':'Remote AS'}, {'connection_state':'State'}]
     EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
 
     def _bgp_peers(task: Task) -> Result:
-        return napalm_get(task=task, getters=[GET])
+        return napalm_get(task=task, getters=['get_bgp_neighbors', 'get_bgp_neighbors_detail'])
 
     f_filter = (
         {k: v for k, v in [f.split("=") for f in field_filter]} if field_filter else {}
     )
 
     result = ctx.obj["target"].run(
-        task=_bgp_peers, name=GET, raise_on_error=False
+        task=_bgp_peers, name='bgp_peers', raise_on_error=False
     )
 
     if(ctx.obj['debug']):
@@ -686,19 +685,42 @@ def bgp_peers(ctx: Context, field_filter: Optional[List] = None):
             if res[node].failed:
                 continue
             node_ret = []
-            for k in res[node].result[GET]:
-                dev_result = res[node].result[GET][k]
+            for vrf in res[node].result['get_bgp_neighbors']:
+                for peer in res[node].result['get_bgp_neighbors'][vrf]['peers']:
+                    dev_result = res[node].result['get_bgp_neighbors'][vrf]['peers'][peer]
+                    dev_result['remote_address'] = peer
+                    new_res = {HEADERS[0]['_default']: vrf, 'router_id': res[node].result['get_bgp_neighbors'][vrf]['router_id']}
+                    address_family = dev_result['address_family']
+                    if 'evpn' in address_family:
+                        new_res.update({HEADERS[EXISTING_HEADERS.index('evpn')]['evpn']: f"{address_family['evpn']['received_prefixes']}/{address_family['evpn']['accepted_prefixes']}/{address_family['evpn']['sent_prefixes']}"})
+                    if 'ipv6' in address_family:
+                       new_res.update({HEADERS[EXISTING_HEADERS.index('ipv6')]['ipv6']: f"{address_family['ipv6']['received_prefixes']}/{address_family['ipv6']['accepted_prefixes']}/{address_family['ipv6']['sent_prefixes']}"})
+                    if 'ipv4' in address_family:
+                        new_res.update({HEADERS[EXISTING_HEADERS.index('ipv4')]['ipv4']: f"{address_family['ipv4']['received_prefixes']}/{address_family['ipv4']['accepted_prefixes']}/{address_family['ipv4']['sent_prefixes']}"})
+
+                    for key in dev_result:
+                        if key in EXISTING_HEADERS:
+                            new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: dev_result[key]})
+                    node_ret.append(new_res)
+
+
+            for k in res[node].result['get_bgp_neighbors_detail']:
+                dev_result = res[node].result['get_bgp_neighbors_detail'][k]
                 for peer_as in dev_result:
                     for connection in dev_result[peer_as]:
-                        new_res = {HEADERS[0]['_default']: k, HEADERS[EXISTING_HEADERS.index('peer_as')]['peer_as']: peer_as}
-                        new_res.update({HEADERS[EXISTING_HEADERS.index('Rx/Act/Tx')]['Rx/Act/Tx']: f"{connection['received_prefix_count']}/{connection['accepted_prefix_count']}/{connection['advertised_prefix_count']}"})
+                        new_res = list(filter(lambda x: x['Peer'] == connection['remote_address'], node_ret))[0]
+
                         for key in connection:
                             if key in EXISTING_HEADERS:
                                 new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: connection[key]})
-                        node_ret.append(new_res)
+
+                        if new_res[HEADERS[EXISTING_HEADERS.index('local_as')]['local_as']] == new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] or new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] == 0:
+                            # del(new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']])
+                            new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] = new_res[HEADERS[EXISTING_HEADERS.index('local_as')]['local_as']]
+
+
             ret[node] = node_ret
         return ret
-
 
     processed_result = _process_results(result)
 

@@ -121,54 +121,183 @@ class CustomSRLDriver(NokiaSRLDriver):
 
             def _build_prefix_dict():
                 prefix_limit = {}
-                ipv4_unicast = self._find_txt(bgp_neighbor, "ipv4-unicast")
-                if ipv4_unicast:
-                    ipv4_unicast = eval(ipv4_unicast.replace("'", '"'))
-                    prefix_limit.update(
-                        {
-                            "ipv4": {
-                                "sent_prefixes": convert(
-                                    int,
-                                    self._find_txt(ipv4_unicast, "sent-routes"),
-                                    default=-1,
-                                ),
-                                "received_prefixes": convert(
-                                    int,
-                                    self._find_txt(ipv4_unicast, "received-routes"),
-                                    default=-1,
-                                ),
-                                "accepted_prefixes": convert(
-                                    int,
-                                    self._find_txt(ipv4_unicast, "active-routes"),
-                                    default=-1,
-                                ),
+                afi_safi = bgp_neighbor.get("afi-safi", None)
+                if afi_safi is None:
+                    ipv4_unicast = self._find_txt(bgp_neighbor, "ipv4-unicast")
+                    if ipv4_unicast:
+                        ipv4_unicast = eval(ipv4_unicast.replace("'", '"'))
+                        prefix_limit.update(
+                            {
+                                "ipv4": {
+                                    "sent_prefixes": convert(
+                                        int,
+                                        self._find_txt(ipv4_unicast, "sent-routes"),
+                                        default=-1,
+                                    ),
+                                    "received_prefixes": convert(
+                                        int,
+                                        self._find_txt(ipv4_unicast, "received-routes"),
+                                        default=-1,
+                                    ),
+                                    "accepted_prefixes": convert(
+                                        int,
+                                        self._find_txt(ipv4_unicast, "active-routes"),
+                                        default=-1,
+                                    ),
+                                }
                             }
-                        }
-                    )
-                ipv6_unicast = self._find_txt(bgp_neighbor, "ipv6-unicast")
-                if ipv6_unicast:
-                    ipv6_unicast = eval(ipv6_unicast.replace("'", '"'))
-                    prefix_limit.update(
-                        {
-                            "ipv6": {
-                                "sent_prefixes": convert(
-                                    int,
-                                    self._find_txt(ipv6_unicast, "sent-routes"),
-                                    default=-1,
-                                ),
-                                "received_prefixes": convert(
-                                    int,
-                                    self._find_txt(ipv6_unicast, "received-routes"),
-                                    default=-1,
-                                ),
-                                "accepted_prefixes": convert(
-                                    int,
-                                    self._find_txt(ipv6_unicast, "active-routes"),
-                                    default=-1,
-                                ),
+                        )
+                    ipv6_unicast = self._find_txt(bgp_neighbor, "ipv6-unicast")
+                    if ipv6_unicast:
+                        ipv6_unicast = eval(ipv6_unicast.replace("'", '"'))
+                        prefix_limit.update(
+                            {
+                                "ipv6": {
+                                    "sent_prefixes": convert(
+                                        int,
+                                        self._find_txt(ipv6_unicast, "sent-routes"),
+                                        default=-1,
+                                    ),
+                                    "received_prefixes": convert(
+                                        int,
+                                        self._find_txt(ipv6_unicast, "received-routes"),
+                                        default=-1,
+                                    ),
+                                    "accepted_prefixes": convert(
+                                        int,
+                                        self._find_txt(ipv6_unicast, "active-routes"),
+                                        default=-1,
+                                    ),
+                                }
                             }
-                        }
-                    )
+                        )
+                else:
+                    ipv4_unicast = list(filter(lambda x: x['afi-safi-name'] == 'srl_nokia-common:ipv4-unicast', afi_safi))[0]
+                    ipv6_unicast = list(filter(lambda x: x['afi-safi-name'] == 'srl_nokia-common:ipv6-unicast', afi_safi))[0]
+                    evpn = list(filter(lambda x: x['afi-safi-name'] == 'srl_nokia-common:evpn', afi_safi))[0]
+                    if ipv4_unicast['admin-state'] == 'enable':
+                        prefix_limit.update(
+                            {
+                                "ipv4": {
+                                    "sent_prefixes": convert(
+                                        int,
+                                        ipv4_unicast.get('sent-routes', -1),
+                                        default=-1,
+                                    ),
+                                    "received_prefixes": convert(
+                                        int,
+                                        ipv4_unicast.get('received-routes', -1),
+                                        default=-1,
+                                    ),
+                                    "accepted_prefixes": convert(
+                                        int,
+                                        ipv4_unicast.get('active-routes', -1),
+                                        default=-1,
+                                    ),
+                                    "rejected_prefixes": convert(
+                                        int,
+                                        ipv4_unicast.get('rejected-routes', -1),
+                                        default=-1,
+                                    ),
+                                    "recieved_prefixes_whithdrawn_due_to_error": convert(
+                                        int,
+                                        ipv4_unicast.get('received-routes-withdrawn-due-to-error', -1),
+                                        default=-1,
+                                    ),
+                                }
+                            }
+                        )
+                    # else:
+                    #     prefix_limit.update(
+                    #         {
+                    #             "ipv4": {
+                    #                 "admin_state": ipv4_unicast['admin-state'],
+                    #                 "oper_state": ipv4_unicast['oper-state'],
+                    #             }
+                    #         }
+                    #     )
+                    if ipv6_unicast['admin-state'] == 'enable':
+                        prefix_limit.update(
+                            {
+                                "ipv6": {
+                                    "sent_prefixes": convert(
+                                        int,
+                                        ipv6_unicast.get('sent-routes', -1),
+                                        default=-1,
+                                    ),
+                                    "received_prefixes": convert(
+                                        int,
+                                        ipv6_unicast.get('received-routes', -1),
+                                        default=-1,
+                                    ),
+                                    "accepted_prefixes": convert(
+                                        int,
+                                        ipv6_unicast.get('active-routes', -1),
+                                        default=-1,
+                                    ),
+                                    "rejected_prefixes": convert(
+                                        int,
+                                        ipv6_unicast.get('rejected-routes', -1),
+                                        default=-1,
+                                    ),
+                                    "recieved_prefixes_whithdrawn_due_to_error": convert(
+                                        int,
+                                        ipv6_unicast.get('received-routes-withdrawn-due-to-error', -1),
+                                        default=-1,
+                                    ),
+                                }
+                            }
+                        )
+                    # else:
+                    #     prefix_limit.update(
+                    #         {
+                    #             "ipv6": {
+                    #                 "admin_state": ipv6_unicast['admin-state'],
+                    #                 "oper_state": ipv6_unicast['oper-state'],
+                    #             }
+                    #         }
+                    #     )
+                    if evpn['admin-state'] == 'enable':
+                        prefix_limit.update(
+                            {
+                                "evpn": {
+                                    "sent_prefixes": convert(
+                                        int,
+                                        evpn.get('sent-routes', -1),
+                                        default=-1,
+                                    ),
+                                    "received_prefixes": convert(
+                                        int,
+                                        evpn.get('received-routes', -1),
+                                        default=-1,
+                                    ),
+                                    "accepted_prefixes": convert(
+                                        int,
+                                        evpn.get('active-routes', -1),
+                                        default=-1,
+                                    ),
+                                    "rejected_prefixes": convert(
+                                        int,
+                                        evpn.get('rejected-routes', -1),
+                                        default=-1,
+                                    ),
+                                    "recieved_prefixes_whithdrawn_due_to_error": convert(
+                                        int,
+                                        evpn.get('received-routes-withdrawn-due-to-error', -1),
+                                        default=-1,
+                                    ),
+                                }
+                            }
+                        )
+                    # else:
+                    #     prefix_limit.update(
+                    #         {
+                    #             "evpn": {
+                    #                 "admin_state": evpn['admin-state'],
+                    #                 "oper_state": evpn['oper-state'],
+                    #             }
+                    #         }
+                    #     )
                 return prefix_limit
 
             path = {"/network-instance[name=*]"}
