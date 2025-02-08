@@ -1,4 +1,4 @@
-from napalm_srl.srl import NokiaSRLDriver
+from napalm_srl.srl import NokiaSRLDriver, SRLAPI
 # https://github.com/napalm-automation-community/napalm-srlinux/blob/main/napalm_srl/srl.py
 
 from napalm.base.helpers import convert, as_number
@@ -766,3 +766,26 @@ class CustomSRLDriver(NokiaSRLDriver):
             return route_data
         except Exception as e:
             logging.error("Error occurred : {}".format(e))
+
+def dictToList(self, aDict):
+        keys_to_update = {}  # Store new keys to add after iteration
+        keys_to_delete = []  # Store keys to delete after iteration
+
+        for key in list(aDict.keys()):  # Use list() to avoid modifying during iteration
+            if key.startswith("___"):
+                keys_to_update[key[3:]] = [
+                    self._dictToList(val) if isinstance(val, dict) else val
+                    for val in aDict[key].values()
+                ]
+                keys_to_delete.append(key)  # Mark for deletion
+            elif isinstance(aDict[key], dict):
+                aDict[key] = self._dictToList(aDict[key])
+
+        # Apply updates outside the loop
+        aDict.update(keys_to_update)
+        for key in keys_to_delete:
+            del aDict[key]
+
+        return aDict
+
+SRLAPI._dictToList = dictToList
