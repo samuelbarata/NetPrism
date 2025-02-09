@@ -4,6 +4,7 @@ from napalm_srl.srl import NokiaSRLDriver, SRLAPI
 from napalm.base.helpers import convert, as_number
 import logging
 import datetime
+import jmespath
 
 class CustomSRLDriver(NokiaSRLDriver):
     def __init__(self, hostname, username, password, timeout=60, optional_args=None):
@@ -766,6 +767,107 @@ class CustomSRLDriver(NokiaSRLDriver):
             return route_data
         except Exception as e:
             logging.error("Error occurred : {}".format(e))
+
+    def get_ethernet_segments(self):
+        path_spec = {
+            "path": f"/system/network-instance/protocols/evpn/ethernet-segments",
+            "jmespath": '"system/network-instance/protocols/evpn/ethernet-segments"."bgp-instance"[]."ethernet-segment"[].{name:name, esi:esi, "mh-mode":"multi-homing-mode",\
+                oper:"oper-state",itf:interface[]."ethernet-interface"|join(\' \',@), "ni-peers":association."network-instance"[]."_ni_peers"|join(\', \',@) }',
+            "datatype": "STATE",
+        }
+
+        def set_es_peers(resp):
+            res = []
+            for bgp_inst in (
+                # resp[0]
+                # .get("system/network-instance/protocols/evpn/ethernet-segments", {})
+                # .get("bgp-instance", [])
+                resp.get("srl_nokia-system:system", {}).get("srl_nokia-system-network-instance:network-instance", {}).get("protocols", {}).get("evpn", {}).get("srl_nokia-system-network-instance-bgp-evpn-ethernet-segments:ethernet-segments", {}).get("bgp-instance", [])
+                # resp['srl_nokia-system:system']['srl_nokia-system-network-instance:network-instance']['protocols']['evpn']['srl_nokia-system-network-instance-bgp-evpn-ethernet-segments:ethernet-segments']['bgp-instance']
+
+            ):
+                for es in bgp_inst.get("ethernet-segment", []):
+                    es['bgp_instance'] = bgp_inst['id']
+                    if not "association" in es:
+                        es["association"] = {}
+                    if not "network-instance" in es["association"]:
+                        es["association"]["network-instance"] = []
+                    for vrf in es["association"]["network-instance"]:
+                        es_peers = (
+                            vrf["bgp-instance"][0]
+                            .get("computed-designated-forwarder-candidates", {})
+                            .get("designated-forwarder-candidate", [])
+                        )
+                        vrf["_peers"] = " ".join(
+                            (
+                                f"{peer['address']}(DF)"
+                                if peer["designated-forwarder"]
+                                else peer["address"]
+                            )
+                            for peer in es_peers
+                        )
+                        vrf["_ni_peers"] = f"{vrf['name']}:[{vrf['_peers']}]"
+                    res.append(es)
+            return res
+
+        system_features = self.device._gnmiGet(prefix="", path=("/system/features",), pathType="STATE")
+        if (not "evpn" in system_features['srl_nokia-system:system']['features']):
+            return {"es": []}
+        resp = self.device._gnmiGet(prefix="", path=(path_spec.get("path", ""),), pathType=path_spec["datatype"])
+        # set_es_peers(resp)
+        # res = jmespath.search(path_spec["jmespath"], resp[0])
+        return set_es_peers(resp)
+
+    def get_link_agregation_groups(self, lag_id: str = "*"):
+        path_spec = {
+            "path": (f"/openconfig/interfaces/interface[name=lag{lag_id}]", f"/openconfig/lacp/interfaces/interface[name=lag{lag_id}]"),
+            "datatype": "STATE",
+        }
+        path_spec['jmespath_interfaces'] = '"openconfig-interfaces:interfaces"."interface"[].{\
+            name: name,\
+            mtu: state.mtu,\
+            lag_type: "openconfig-if-aggregate:aggregation".state."lag-type",\
+            min_links: "openconfig-if-aggregate:aggregation".state."min-links",\
+            lag_speed: "openconfig-if-aggregate:aggregation".state."lag-speed",\
+            members: "openconfig-if-aggregate:aggregation".state.member[]\
+        }'
+        path_spec['jmespath_lacp'] = '"openconfig-lacp:lacp"."interfaces"."interface"[].{\
+            name: name,\
+            lacp_interval: state.interval,\
+            lacp_mode: state."lacp-mode",\
+            system_id_mac: state."system-id-mac",\
+            system_id_priority: state."system-priority",\
+            members: members.member[].{\
+                interface: state.interface,\
+                activity: state.activity,\
+                timeout: state.timeout,\
+                synchronization: state.synchronization,\
+                aggregatable: state.aggregatable,\
+                collecting: state.collecting,\
+                distributing: state.distributing,\
+                system_id: state."system-id",\
+                key: state."oper-key",\
+                partner_id: state."partner-id",\
+                partner_key: state."partner-key",\
+                port_number: state."port-num",\
+                partner_port_number: state."partner-port-num"\
+            }\
+        }'
+
+        resp = self.device._gnmiGet(prefix="", path=path_spec["path"], pathType=path_spec["datatype"])
+
+        interfaces = jmespath.search(path_spec["jmespath_interfaces"], resp)
+        if interfaces is None:
+            return []
+        lacp = jmespath.search(path_spec["jmespath_lacp"], resp)
+
+        for interface in interfaces:
+            for i in lacp:
+                if i['name'] == interface['name']:
+                    interface.update(i)
+                    break
+
+        return interfaces
 
 def dictToList(self, aDict):
         keys_to_update = {}  # Store new keys to add after iteration

@@ -1006,5 +1006,138 @@ def vlans(ctx: Context, field_filter: Optional[List] = None):
         i_filter=ctx.obj["i_filter"],
     )
 
+@cli.command()
+@click.pass_context
+@click.option(
+    "--field-filter",
+    "-f",
+    multiple=True,
+    help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
+)
+def es(ctx: Context, field_filter: Optional[List] = None):
+    """Displays Ethernet Segments"""
+
+    GET = 'get_ethernet_segments'
+    HEADERS = [{'name':'Name'}, {'esi':'ESI'}, {'multi-homing-mode': 'MH Mode'}, {'interface': 'Interfaces'}, {'_ni_peers':'NI Peers'}]
+    EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
+
+    def _es(task: Task) -> Result:
+        return napalm_get(task=task, getters=[GET])
+
+    f_filter = (
+        {k: v for k, v in [f.split("=") for f in field_filter]} if field_filter else {}
+    )
+
+    result = ctx.obj["target"].run(
+        task=_es, name=GET, raise_on_error=False
+    )
+
+    if(ctx.obj['debug']):
+        print_result(result)
+
+    def _process_results(res: AggregatedResult) -> AggregatedResult:
+        ret = {}
+        for node in res:
+            if res[node].failed:
+                continue
+            node_ret = []
+            for dev_result in res[node].result[GET]:
+                new_res = {}
+
+                for key in dev_result:
+                    if key == 'interface':
+                        new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: [interface[key] for interface in dev_result[key] for key in interface]})
+                    elif key == 'association':
+                        ni = dev_result[key].get('network-instance', [])
+                        _ni_peers = [obj.get('_ni_peers', None) for obj in ni]
+                        if len(_ni_peers) == 0:
+                            continue
+                        elif len(_ni_peers) == 1:
+                            _ni_peers = _ni_peers[0]
+                        new_res.update({HEADERS[EXISTING_HEADERS.index('_ni_peers')]['_ni_peers']: _ni_peers})
+
+                    elif key in EXISTING_HEADERS:
+                        new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: dev_result[key]})
+                node_ret.append(new_res)
+            ret[node] = node_ret
+        return ret
+
+    processed_result = _process_results(result)
+
+    print_report(
+        processed_result=processed_result,
+        result=result,
+        headers=HEADERS,
+        name="Ethernet Segments Table",
+        box_type=ctx.obj["box_type"],
+        f_filter=f_filter,
+        i_filter=ctx.obj["i_filter"],
+    )
+
+
+@cli.command()
+@click.pass_context
+@click.option(
+    "--field-filter",
+    "-f",
+    multiple=True,
+    help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
+)
+def lag(ctx: Context, field_filter: Optional[List] = None):
+    """Displays Link Agregation"""
+
+    GET = 'get_link_agregation_groups'
+    HEADERS = [{'name':'LAG'}, {'mtu':'MTU'}, {'min_links': 'min'}, {'lag_type': 'Type'}, {'lag_speed':'Speed'}, {'key': 'LACP Key'}, {'lacp_interval': 'LACP Interval'}, {'lacp_mode': 'LACP Mode'}, {'system_id': 'LACP System ID'}, {'activity': 'LACP Activity'}, {'interface': 'Interface'}, {'synchronization': 'Syncronization'}]
+    EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
+
+    def _lag(task: Task) -> Result:
+        return napalm_get(task=task, getters=[GET])
+
+    f_filter = (
+        {k: v for k, v in [f.split("=") for f in field_filter]} if field_filter else {}
+    )
+
+    result = ctx.obj["target"].run(
+        task=_lag, name=GET, raise_on_error=False
+    )
+
+    if(ctx.obj['debug']):
+        print_result(result)
+
+    def _process_results(res: AggregatedResult) -> AggregatedResult:
+        ret = {}
+        for node in res:
+            if res[node].failed:
+                continue
+            node_ret = []
+            for dev_result in res[node].result[GET]:
+                tmp_res = {}
+
+                for key in dev_result:
+                    if key in EXISTING_HEADERS:
+                        tmp_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: dev_result[key]})
+
+                for member in dev_result['members']:
+                    new_res = deepcopy(tmp_res)
+                    for k2 in member:
+                        if k2 in EXISTING_HEADERS:
+                            new_res.update({HEADERS[EXISTING_HEADERS.index(k2)][k2]: member[k2]})
+                    node_ret.append(new_res)
+
+            ret[node] = node_ret
+        return ret
+
+    processed_result = _process_results(result)
+
+    print_report(
+        processed_result=processed_result,
+        result=result,
+        headers=HEADERS,
+        name="Link Agregation Groups Table",
+        box_type=ctx.obj["box_type"],
+        f_filter=f_filter,
+        i_filter=ctx.obj["i_filter"],
+    )
+
 if __name__ == "__main__":
     cli(obj={})
