@@ -285,7 +285,7 @@ def cli(
         sros_kinds = [
             k
             for k, v in topo["topology"].get("kinds", {}).items()
-            if "/sros" in v.get("image")
+            if "sros" in v.get("image")
         ]
         clab_nodes: Dict[str, Dict] = topo["topology"]["nodes"]
         for node, node_spec in clab_nodes.items():
