@@ -5,3 +5,4 @@
 *.lock
 __pycache__
 poetry.toml
+.pytest_cache

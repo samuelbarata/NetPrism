@@ -1,6 +1,6 @@
-image: docker:20.10.16
+image: docker:28.1.1
 services:
-  - name: docker:20.10.16-dind
+  - name: docker:28.1.1-dind
     alias: docker
 
 variables:
@@ -10,15 +10,27 @@ variables:
   CI_REGISTRY_IMAGE: $CI_REGISTRY_USER/$CI_REGISTRY_REPO
   CONTAINER_TEST_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
   CONTAINER_RELEASE_IMAGE: $CI_REGISTRY_IMAGE:latest
+  POETRY_VERSION: 2.1.2
 
 before_script:
   - echo $DOCKER_PASSWORD | docker login -u $DOCKER_USER --password-stdin #$DOCKER_REGISTRY
 
 stages:
+- test
 - build
 - deploy
 
-build:
+Test:
+  stage: test
+  image: samuelbarata/infinity-gauntlet:latest
+  before_script:
+    - pip install "poetry==$POETRY_VERSION"
+  script:
+    - poetry install --with dev
+    - poetry run pytest
+  allow_failure: true
+
+Build:
   stage: build
   script:
     - docker build --pull -t $CONTAINER_TEST_IMAGE .
