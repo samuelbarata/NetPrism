@@ -1232,8 +1232,7 @@ def user(ctx: Context, username: str, password: Optional[str] = None, rsa_key: O
         try:
             template = jEnv.get_template(f"{task.host.platform}/create_user.j2")
         except TemplateNotFound:
-            print(f"Template not found for platform {task.host.platform}")
-            return Result(host=task.host, failed=True, result="Template not found")
+            return Result(host=task.host, failed=True, result=f"Template not found for platform {task.host.platform}")
         config = template.render(user_details=user_details)
         return napalm_configure(task=task, dry_run=dry_run, configuration=config)
 
@@ -1256,71 +1255,66 @@ def user(ctx: Context, username: str, password: Optional[str] = None, rsa_key: O
 @click.option(
     "--vrf",
     default=None,
-    mandatory=True,
     type=str,
     help="VRF ID for the VRF to create (e.g. vrf-100)",
 )
 @click.option(
     "--vxlan-interface",
     default=None,
-    mandatory=True,
     type=str,
     help="VxLAN interface for the VRF to create (e.g. vxlan1.2)",
 )
 @click.option(
     "--bgp-instance",
     default=None,
-    mandatory=True,
     type=int,
     help="BGP instance to assign to the evpn",
 )
 @click.option(
     "--bgp-evi",
     default=None,
-    mandatory=True,
     type=int,
     help="BGP EVI to assign to the evpn",
 )
 @click.option(
     "--bgp-ecmp",
     default=1,
-    mandatory=False,
     type=int,
     help="BGP equal-cost multipath (ECMP)"
 )
 @click.option(
     "--route-target-export",
     default=None,
-    mandatory=True,
     type=str,
     help="BGP route-target to export to evpn (e.g. target:100:1)",
 )
 @click.option(
     "--route-target-import",
     default=None,
-    mandatory=True,
     type=str,
     help="BGP route-target to import from evpn (e.g. target:100:1)",
 )
 def mac_vrf(ctx: Context, vrf: str, vxlan_interface: str, bgp_instance: int, bgp_evi: int, route_target_export: str, route_target_import: str, bgp_ecmp: Optional[int] = 1, dry_run: Optional[bool] = False):
     """Create new MAC VRF"""
 
+    vxlan_interface_split = vxlan_interface.split('.')
     options = {
         'vrf': vrf,
+        'vxlan': vxlan_interface_split[0],
+        'vxlan_int': vxlan_interface_split[1],
         'vxlan_interface': vxlan_interface,
         'bgp_instance': bgp_instance,
-        'bgp_evi': bgp_evi,
-        'bgp_ecmp': bgp_ecmp,
-        'route_target_export': route_target_export,
-        'route_target_import': route_target_import
+        'evi': bgp_evi,
+        'ecmp': bgp_ecmp,
+        'export_rt': route_target_export,
+        'import_rt': route_target_import
     }
 
     def _mac_vrf(task: Task) -> Result:
         try:
-            template = jEnv.get_template(f"{task.host.platform}/mac_vrf.j2")
+            template = jEnv.get_template(f"{task.host.platform}/create_mac_vrf.j2")
         except TemplateNotFound:
-            print(f"Template not found for platform {task.host.platform}")
-            return Result(host=task.host, failed=True, result="Template not found")
+            return Result(host=task.host, failed=True, result=f"Template not found for platform {task.host.platform}")
         
         config = template.render(options=options)
         return napalm_configure(task=task, dry_run=dry_run, configuration=config)

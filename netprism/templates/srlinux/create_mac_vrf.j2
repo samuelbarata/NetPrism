@@ -1,3 +1,6 @@
+set / tunnel-interface {{ options.get('vxlan') }} vxlan-interface {{ options.get('vxlan_int') }} type bridged{{ '\n' }}
+set / tunnel-interface {{ options.get('vxlan') }} vxlan-interface {{ options.get('vxlan_int') }} ingress vni {{ options.get('evi') }}{{ '\n' }}
+
 set / network-instance {{ options.get('vrf') }} type mac-vrf{{ '\n' }}
 set / network-instance {{ options.get('vrf') }} admin-state enable{{ '\n' }}
 set / network-instance {{ options.get('vrf') }} vxlan-interface {{ options.get('vxlan_interface') }}{{ '\n' }}
