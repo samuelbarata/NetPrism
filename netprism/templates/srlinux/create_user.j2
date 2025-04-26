@@ -1,0 +1,17 @@
+set system aaa authentication user {{ user_details.get('username') }}{{ '\n' }}
+
+{%- if user_details.get('password') -%}
+set system aaa authentication user {{ user_details.get('username') }} password {{ user_details.password }}{{ '\n' }}
+{%- endif -%}
+
+{%- if user_details.get('sshkeys') -%}
+set system aaa authentication user {{ user_details.get('username') }} ssh-key [
+    {%- for key in user_details.sshkeys -%}
+    {{ key }}
+    {%- endfor -%}
+]{{ '\n' }}
+{%- endif -%}
+
+{%- if user_details.get('level') and user_details.get('level') == 15 -%}
+set system aaa authentication user {{ user_details.get('username') }} superuser true{{ '\n' }}
+{%- endif -%}

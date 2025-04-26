@@ -225,13 +225,14 @@
                 "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
                 // "--inv-filter",
                 // "site=dc1",
-                // "--debug",
+                "--debug",
                 "configure",
                 "user",
                 "--username",
                 "samuelbarata",
                 "--password",
                 "samuel123",
+                // "--dry-run"
             ],
         },
         {

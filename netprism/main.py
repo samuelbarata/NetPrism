@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Callable
 import importlib
 from fnmatch import fnmatch
 import sys
+import os
 import tempfile
 from datetime import timedelta
 from copy import deepcopy
@@ -28,6 +29,7 @@ from nornir_utils.plugins.functions import print_result
 
 import click
 from click.core import Context
+from jinja2 import Environment, TemplateNotFound, select_autoescape, FileSystemLoader
 
 
 PYTHON_PKG_NAME = "netprism"
@@ -70,6 +72,26 @@ NORNIR_DEFAULT_CONFIG: Dict[str, Any] = {
         "intent_dir": "intent",
     },
 }
+
+SHOW_RESULT_ON_CONFIGURE = True
+
+
+# Compute path to the templates folder next to this file
+BASE_DIR = os.path.dirname(__file__)
+TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
+
+# Prepare Jinja2 environment
+jEnv = Environment(
+    loader=FileSystemLoader(
+        searchpath=TEMPLATE_DIR,
+        followlinks=True,
+        encoding="utf-8"
+    ),
+    trim_blocks=True,
+    lstrip_blocks=True,
+    autoescape=select_autoescape(),
+)
+
 
 def get_project_version():
     try:
@@ -1154,7 +1176,6 @@ def configure(ctx: Context, devices: Optional[List] = None):
 
 @configure.command()
 @click.pass_context
-
 @click.option(
     "--username",
     "-u",
@@ -1167,25 +1188,149 @@ def configure(ctx: Context, devices: Optional[List] = None):
     default=None,
     help="Password for the user to create",
 )
-def user(ctx: Context, username: str, password: Optional[str] = "password", field_filter: Optional[List] = None, ):
+@click.option(
+    "--rsa-key",
+    default=None,
+    multiple=True,
+    help="SSH Key for the user to create",
+)
+@click.option(
+    "--ecdsa-key",
+    default=None,
+    multiple=True,
+    help="SSH Key for the user to create",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    type=bool,
+    help="Dry run",
+)
+@click.option(
+    "--level",
+    "-l",
+    default=None,
+    help="Level for the user to create (0-15)",
+    type=int
+)
+def user(ctx: Context, username: str, password: Optional[str] = None, rsa_key: Optional[List] = None, ecdsa_key: Optional[List] = None, dry_run: Optional[bool] = False, level: Optional[int] = None):
     """Create new User"""
-    print(f"Creating user {username} with password {password}")
+
+    user_details = {'username': username}
+    if password:
+        user_details['password'] = password
+    if rsa_key or ecdsa_key:
+        user_details['sshkeys'] = []
+        if rsa_key:
+            user_details['sshkeys'].extend(rsa_key)
+        if ecdsa_key:
+            user_details['sshkeys'].extend(ecdsa_key)
+    if level:
+        user_details['level'] = level
 
     def _user(task: Task) -> Result:
-        return napalm_configure(task=task, dry_run=True, configuration="Test123")
-    
-    f_filter = (
-        {k: v for k, v in [f.split("=") for f in field_filter]} if field_filter else {}
-    )
+        try:
+            template = jEnv.get_template(f"{task.host.platform}/create_user.j2")
+        except TemplateNotFound:
+            print(f"Template not found for platform {task.host.platform}")
+            return Result(host=task.host, failed=True, result="Template not found")
+        config = template.render(user_details=user_details)
+        return napalm_configure(task=task, dry_run=dry_run, configuration=config)
 
     result = ctx.obj["target"].run(
         task=_user, name='user', raise_on_error=False
     )
-    if(ctx.obj['debug']):
+
+    if(ctx.obj['debug'] or dry_run or SHOW_RESULT_ON_CONFIGURE):
         print_result(result)
 
 
+@configure.command()
+@click.pass_context
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    type=bool,
+    help="Dry run",
+)
+@click.option(
+    "--vrf",
+    default=None,
+    mandatory=True,
+    type=str,
+    help="VRF ID for the VRF to create (e.g. vrf-100)",
+)
+@click.option(
+    "--vxlan-interface",
+    default=None,
+    mandatory=True,
+    type=str,
+    help="VxLAN interface for the VRF to create (e.g. vxlan1.2)",
+)
+@click.option(
+    "--bgp-instance",
+    default=None,
+    mandatory=True,
+    type=int,
+    help="BGP instance to assign to the evpn",
+)
+@click.option(
+    "--bgp-evi",
+    default=None,
+    mandatory=True,
+    type=int,
+    help="BGP EVI to assign to the evpn",
+)
+@click.option(
+    "--bgp-ecmp",
+    default=1,
+    mandatory=False,
+    type=int,
+    help="BGP equal-cost multipath (ECMP)"
+)
+@click.option(
+    "--route-target-export",
+    default=None,
+    mandatory=True,
+    type=str,
+    help="BGP route-target to export to evpn (e.g. target:100:1)",
+)
+@click.option(
+    "--route-target-import",
+    default=None,
+    mandatory=True,
+    type=str,
+    help="BGP route-target to import from evpn (e.g. target:100:1)",
+)
+def mac_vrf(ctx: Context, vrf: str, vxlan_interface: str, bgp_instance: int, bgp_evi: int, route_target_export: str, route_target_import: str, bgp_ecmp: Optional[int] = 1, dry_run: Optional[bool] = False):
+    """Create new MAC VRF"""
 
+    options = {
+        'vrf': vrf,
+        'vxlan_interface': vxlan_interface,
+        'bgp_instance': bgp_instance,
+        'bgp_evi': bgp_evi,
+        'bgp_ecmp': bgp_ecmp,
+        'route_target_export': route_target_export,
+        'route_target_import': route_target_import
+    }
+
+    def _mac_vrf(task: Task) -> Result:
+        try:
+            template = jEnv.get_template(f"{task.host.platform}/mac_vrf.j2")
+        except TemplateNotFound:
+            print(f"Template not found for platform {task.host.platform}")
+            return Result(host=task.host, failed=True, result="Template not found")
+        
+        config = template.render(options=options)
+        return napalm_configure(task=task, dry_run=dry_run, configuration=config)
+
+    result = ctx.obj["target"].run(
+        task=_mac_vrf, name='MAC VRF', raise_on_error=False
+    )
+
+    if(ctx.obj['debug'] or dry_run or SHOW_RESULT_ON_CONFIGURE):
+        print_result(result)
 
 if __name__ == "__main__":
     cli(obj={})

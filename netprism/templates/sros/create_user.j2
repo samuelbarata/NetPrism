@@ -1,0 +1,9 @@
+/configure system security user-params local-user user {{ user_details.get('username') }}{{ '\n' }}
+
+{%- if user_details.get('password') -%}
+/configure system security user-params local-user user {{ user_details.get('username') }} password {{ user_details.password }}{{ '\n' }}
+{%- endif -%}
+
+{%- if user_details.get('level') and user_details.get('level') == 15 -%}
+/configure system security user-params local-user user {{ user_details.get('username') }} console member ["administrative"]{{ '\n' }}
+{%- endif -%}
