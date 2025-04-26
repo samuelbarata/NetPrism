@@ -24,7 +24,7 @@ Test:
   stage: test
   image: samuelbarata/infinity-gauntlet:latest
   before_script:
-    - pip install "poetry==$POETRY_VERSION"
+    - pip install "poetry==$POETRY_VERSION" --break-system-packages
   script:
     - poetry install --with dev
     - poetry run pytest
