@@ -1168,6 +1168,111 @@ def lag(ctx: Context, field_filter: Optional[List] = None):
         i_filter=ctx.obj["i_filter"],
     )
 
+
+@cli.command()
+@click.pass_context
+@click.option(
+    "--field-filter",
+    "-f",
+    multiple=True,
+    help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
+)
+@click.option(
+    "--timeout",
+    "-t",
+    default=5,
+    help="Timeout for the ping",
+)
+@click.option(
+    "--count",
+    "-c",
+    default=5,
+    help="Count for the ping",
+)
+@click.option(
+    "--size",
+    "-s",
+    default=64,
+    help="Size for the ping",
+)
+@click.option(
+    "--source",
+    "-S",
+    default=None,
+    help="Source address for the ping",
+)
+@click.option(
+    "--destination",
+    "-D",
+    default=None,
+    help="Destination address for the ping",
+)
+@click.option(
+    "--vrf",
+    "-v",
+    default=None,
+    help="VRF for the ping",
+)
+def ping(ctx: Context, destination: str, source: Optional[str] = None, size: Optional[int] = None, count: Optional[int] = None, timeout: Optional[int] = None, vrf: Optional[str] = None, field_filter: Optional[List] = None):
+    """Displays PINGS"""
+
+    GET = 'ping'
+    HEADERS = [{'rtt_avg':'Average'}, {'rtt_max':'Max'}, {'rtt_min': 'Min'}, {'rtt_stddev': 'StDev'}, {'packet_loss':'packet_loss'}]
+    EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
+
+    def _ping(task: Task) -> Result:
+        return napalm_ping(task=task, dest=destination, source=source, size=size, count=count, timeout=timeout, vrf=vrf)
+
+    f_filter = (
+        {k: v for k, v in [f.split("=") for f in field_filter]} if field_filter else {}
+    )
+
+    result = ctx.obj["target"].run(
+        task=_ping, name=GET, raise_on_error=False
+    )
+
+    if(ctx.obj['debug']):
+        print_result(result)
+
+    def _process_results(res: AggregatedResult):
+        ret = {}
+        for node in res:
+            if res[node].failed:
+                continue
+            node_ret = []
+            if res[node].result is None:
+                continue
+            if 'error' in res[node].result:
+                ret[node] = [{HEADERS[4]['packet_loss']: f"{count}/{count}"}]
+                continue
+            else:
+                dev_result = res[node].result['success']
+            if dev_result is None:
+                continue
+            new_res = {}
+            for key in dev_result:
+                if key == 'packet_loss':
+                    new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: f"{dev_result[key]}/{count}"})
+                elif key in EXISTING_HEADERS:
+                    new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: dev_result[key]})
+            node_ret.append(new_res)
+            ret[node] = node_ret
+        return ret
+
+    processed_result = _process_results(result)
+
+    print_report(
+        processed_result=processed_result,
+        result=result,
+        name=f"Ping {destination}",
+        headers=HEADERS,
+        box_type=ctx.obj["box_type"],
+        f_filter=f_filter,
+        i_filter=ctx.obj["i_filter"],
+    )
+
+
+
 @cli.group
 @click.pass_context
 def configure(ctx: Context, devices: Optional[List] = None):

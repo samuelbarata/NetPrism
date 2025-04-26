@@ -24,6 +24,9 @@ class CustomSRLDriver(NokiaSRLDriver):
 
         super().__init__(hostname, username, password, timeout, opt_args)
 
+    def ping(self, destination, source="", ttl=None, timeout=None, size=None, count=None, vrf=None):
+        return super()._ping(destination, source, ttl, timeout, size, count, vrf)
+
     def get_facts(self):
         """
             Returns a dictionary containing the following information:
