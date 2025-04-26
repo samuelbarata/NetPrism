@@ -236,7 +236,7 @@ def print_table(
 def cli(
     ctx: Context,
     cfg: str,
-    format: Optional[str] = None,
+    # format: Optional[str] = "table",
     inv_filter: Optional[List] = None,
     #    field_filter: Optional[List] = None,
     box_type: Optional[str] = None,
@@ -390,7 +390,7 @@ def cli(
     if box_type:
         box_type = box_type.upper()
     ctx.obj["box_type"] = box_type
-    ctx.obj["format"] = format
+    # ctx.obj["format"] = format
     ctx.obj["debug"]=debug
 
 
@@ -455,6 +455,8 @@ def sys_info(ctx: Context, field_filter: Optional[List] = None):
                 continue
             node_ret = []
             dev_result = res[node].result[GET]
+            if dev_result is None:
+                continue
             if isinstance(dev_result['uptime'], float):
                 dev_result['uptime'] = str(timedelta(seconds=dev_result['uptime'])) + 's'
             new_res = {}
@@ -662,6 +664,7 @@ def mac(ctx: Context, field_filter: Optional[List] = None):
 )
 def bgp_peers(ctx: Context, field_filter: Optional[List] = None):
     """Displays BGP Peers and their status"""
+    # FIXME: SROS neighbors AS not working properly
 
     HEADERS = [{'_default':'VRF'}, {'remote_address':'Peer'}, {'evpn':'EVPN\nRx/Act/Tx'}, {'ipv4':'IPv4\nRx/Act/Tx'}, {'ipv6':'IPv6\nRx/Act/Tx'}, {'export_policy':'Export Policy'}, {'routing_table':'Group'}, {'import_policy':'Import Policy'}, {'local_as':'Local AS'}, {'remote_as':'Remote AS'}, {'connection_state':'State'}]
     EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
@@ -715,8 +718,7 @@ def bgp_peers(ctx: Context, field_filter: Optional[List] = None):
                             if key in EXISTING_HEADERS:
                                 new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: connection[key]})
 
-                        if new_res[HEADERS[EXISTING_HEADERS.index('local_as')]['local_as']] == new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] or new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] == 0:
-                            # del(new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']])
+                        if new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] == 0:
                             new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] = new_res[HEADERS[EXISTING_HEADERS.index('local_as')]['local_as']]
 
 
@@ -892,6 +894,7 @@ def ni(ctx: Context, field_filter: Optional[List] = None):
 )
 def rib(ctx: Context, field_filter: Optional[List] = None):
     """Displays Routing Table"""
+    # FIXME: SROS
 
     GET = 'get_route_to'
     HEADERS = [{'_default':'Route'}, {'protocol':'Protocol'}, {'next_hop':'Next Hop'}, {'selected_next_hop':'Selected Next Hop'}, {'preference':'preference'}, {'routing_table': 'Routing Table'}, {'outgoing_interface':'Outgoing Interface'}, {'as_path':'AS Path'}]
@@ -916,7 +919,11 @@ def rib(ctx: Context, field_filter: Optional[List] = None):
             if res[node].failed:
                 continue
             node_ret = []
+            if not res[node].result[GET]:
+                continue
             for k in res[node].result[GET]:
+                if k is None:
+                    continue
                 dev_result = res[node].result[GET][k]
 
                 for route in dev_result:
@@ -1138,6 +1145,47 @@ def lag(ctx: Context, field_filter: Optional[List] = None):
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
     )
+
+@cli.group
+@click.pass_context
+def configure(ctx: Context, devices: Optional[List] = None):
+    """Configure nodes"""
+    pass
+
+@configure.command()
+@click.pass_context
+
+@click.option(
+    "--username",
+    "-u",
+    default=None,
+    help="Username for the user to create",
+)
+@click.option(
+    "--password",
+    "-p",
+    default=None,
+    help="Password for the user to create",
+)
+def user(ctx: Context, username: str, password: Optional[str] = "password", field_filter: Optional[List] = None, ):
+    """Create new User"""
+    print(f"Creating user {username} with password {password}")
+
+    def _user(task: Task) -> Result:
+        return napalm_configure(task=task, dry_run=True, configuration="Test123")
+    
+    f_filter = (
+        {k: v for k, v in [f.split("=") for f in field_filter]} if field_filter else {}
+    )
+
+    result = ctx.obj["target"].run(
+        task=_user, name='user', raise_on_error=False
+    )
+    if(ctx.obj['debug']):
+        print_result(result)
+
+
+
 
 if __name__ == "__main__":
     cli(obj={})
