@@ -18,6 +18,7 @@ dependencies = [
     "click (>=8.1.8,<9.0.0)",
     "nornir-napalm (>=0.5.0,<0.6.0)",
     "jmespath (>=1.0.1,<2.0.0)",
+    "jinja2 (>=3.1.6,<4.0.0)",
 ]
 
 [build-system]
@@ -31,4 +32,4 @@ netprism = 'netprism.main:cli'
 pytest = "^8.3.5"
 
 [tool.pytest.ini_options]
-addopts = "-v -s"
+addopts = "-v -s --disable-warnings -s"
