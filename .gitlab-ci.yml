@@ -55,3 +55,18 @@ Deploy Tag:
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
   only:
     - tags
+
+Push to Github:
+  stage: deploy
+  when: manual
+  variables:
+    SSH_KEY: /root/.ssh/id_rsa
+  before_script:
+    - mkdir -p ~/.ssh
+    - echo ${SSH_PRIVATE_KEY_b64} | base64 -d > $SSH_KEY
+    - chmod 400 $SSH_KEY
+    - ssh-agent bash -c "ssh-add $SSH_KEY"
+    - ssh-keyscan -H github.com >> /root/.ssh/known_hosts
+  script:
+    - git remote add github git@github.com:samuelbarata/NetPrism.git
+    - git push github
