@@ -1215,7 +1215,7 @@ def lag(ctx: Context, field_filter: Optional[List] = None):
     help="VRF for the ping",
 )
 def ping(ctx: Context, destination: str, source: Optional[str] = None, size: Optional[int] = None, count: Optional[int] = None, timeout: Optional[int] = None, vrf: Optional[str] = None, field_filter: Optional[List] = None):
-    """Displays PINGS"""
+    """Displays Pings"""
 
     GET = 'ping'
     HEADERS = [{'rtt_avg':'Average'}, {'rtt_max':'Max'}, {'rtt_min': 'Min'}, {'rtt_stddev': 'StDev'}, {'packet_loss':'packet_loss'}]
@@ -1309,7 +1309,7 @@ def traceroute(ctx: Context, destination: str, source: Optional[str] = None, tim
     """Displays Traceroute"""
 
     GET = 'traceroute'
-    HEADERS = [{'host_name':'Hostname'}, {'ip_address':'IP'}, {'rtt1': 'rtt1'}, {'rtt2': 'rtt2'}, {'rtt3':'rtt3'}]
+    HEADERS = [{'_default':'Hop'}, {'host_name':'Hostname'}, {'ip_address':'IP'}, {'rtt1': 'rtt1'}, {'rtt2': 'rtt2'}, {'rtt3':'rtt3'}]
     EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
 
     def _traceroute(task: Task) -> Result:
@@ -1340,16 +1340,25 @@ def traceroute(ctx: Context, destination: str, source: Optional[str] = None, tim
                 dev_result = res[node].result['success']
             if dev_result is None:
                 continue
-            
+
             for hop in range(1, len(dev_result)+1):
-                new_res = {}
-                for packet in (1, 2, 3):
-                    for key in dev_result[hop][packet]:
-                        if 'rtt' in key:
-                            new_res.update({f'rtt{packet}': dev_result[hop][packet][key]})
-                        elif key in EXISTING_HEADERS:
-                            new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: dev_result[hop][packet][key]})
-                node_ret.append(new_res)
+                new_res = [{'Hop': hop}]
+                for packet in dev_result[hop].keys():
+                    if len(new_res) == 1 and len(new_res[0].keys()) == 1:
+                        new_res[0]['Hostname'] = dev_result[hop][packet]['host_name']
+                        new_res[0]['IP'] = dev_result[hop][packet]['ip_address']
+                        new_res[0]['rtt1'] = dev_result[hop][packet]['rtt']
+                        continue
+                    else:
+                        matched = False
+                        for entry in new_res:
+                            if entry['IP'] == dev_result[hop][packet]['ip_address']:
+                                entry[f'rtt{packet}'] = dev_result[hop][packet]['rtt']
+                                matched = True
+                                break
+                        if not matched:
+                            new_res.append({'Hop': hop, f'rtt{packet}': dev_result[hop][packet]['rtt'], 'IP': dev_result[hop][packet]['ip_address'], 'Hostname': dev_result[hop][packet]['host_name']})
+                node_ret += new_res
             ret[node] = node_ret
         return ret
 
@@ -1513,7 +1522,7 @@ def mac_vrf(ctx: Context, vrf: str, vxlan_interface: str, bgp_instance: int, bgp
             template = jEnv.get_template(f"{task.host.platform}/create_mac_vrf.j2")
         except TemplateNotFound:
             return Result(host=task.host, failed=True, result=f"Template not found for platform {task.host.platform}")
-        
+
         config = template.render(options=options)
         return napalm_configure(task=task, dry_run=dry_run, configuration=config)
 

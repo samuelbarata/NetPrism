@@ -5,6 +5,7 @@ from napalm.base.helpers import convert, as_number
 import logging
 import datetime
 import jmespath
+import re
 
 class CustomSRLDriver(NokiaSRLDriver):
     def __init__(self, hostname, username, password, timeout=60, optional_args=None):
@@ -26,6 +27,78 @@ class CustomSRLDriver(NokiaSRLDriver):
 
     def ping(self, destination, source="", ttl=None, timeout=None, size=None, count=None, vrf=None):
         return super()._ping(destination, source, ttl, timeout, size, count, vrf)
+
+    def traceroute(self, destination, source="", ttl=255, timeout=2, vrf=""):
+        try:
+            if not vrf:
+                vrf = "default"
+            command = "traceroute {} {} {}".format(
+                destination,
+                "-m {}".format(ttl) if ttl else "",
+                "network-instance {}".format(vrf) if vrf else "",
+            )
+            output = self.device._jsonrpcRunCli([command])
+            if "error" in output:
+                return {
+                    "error": output["error"]
+                }
+            if "result" not in output:
+                return {
+                    "error": "No result in output: {}".format(output)
+                }
+            result = output["result"][0]['text']
+            if "* * *" in result:
+                return {
+                    'error': 'unknown host {}'.format(destination)
+                }
+            hops = result.split("byte packets")[1]
+            hop_list = hops.split("\n")
+            probes = {}
+
+            # Match either:
+            # - hostname (ip) rtt ms
+            # - just rtt ms
+            pattern = re.compile(
+                r'(?:(\S+)\s+\(([\d.]+)\)\s+)?([\d.]+|\*)\s+ms'
+            )
+            ip_address = None
+            host_name = None
+
+            for h in hop_list:
+                if h.strip():
+
+                    h_splits = h.strip().split()
+                    hop_num = int(h_splits[0])  # first item is the hop number
+                    matches = list(pattern.finditer(h))
+
+                    ct_probe = {}
+                    probe_id = 1
+
+                    for match in matches:
+                        if match.group(0) == '*':
+                            ct_probe[probe_id] = {
+                                'rtt': '*',
+                                'ip_address': '*',
+                                'host_name': '*'
+                            }
+                        else:
+                            if match.group(1) and match.group(2):
+                                host_name = match.group(1)
+                                ip_address = match.group(2)
+
+                            rtt = float(match.group(3))
+                            ct_probe[probe_id] = {
+                                'rtt': rtt,
+                                'ip_address': ip_address,
+                                'host_name': host_name
+                            }
+                        probe_id += 1
+
+                    probes[hop_num] = ct_probe
+
+            return {"success": probes}
+        except Exception as e:
+            logging.error("Error occurred : {}".format(e))
 
     def get_facts(self):
         """
