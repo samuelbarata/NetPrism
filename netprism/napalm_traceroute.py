@@ -2,14 +2,15 @@ from typing import Optional
 from nornir.core.task import Result, Task
 
 from nornir_napalm.plugins.connections import CONNECTION_NAME
+import napalm.base.constants as C
 
 def napalm_traceroute(
     task: Task,
     destination: str,
-    source: Optional[str] = "",
-    ttl: Optional[int] = 255,
-    timeout: Optional[int] = 2,
-    vrf: Optional[str] = None,
+    source: Optional[str] = C.TRACEROUTE_SOURCE,
+    ttl: Optional[int] = C.TRACEROUTE_TTL,
+    timeout: Optional[int] = C.TRACEROUTE_TIMEOUT,
+    vrf: Optional[str] = C.TRACEROUTE_VRF,
 ) -> Result:
     """
     Executes traceroute on the device and returns a dictionary with the result.

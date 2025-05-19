@@ -1332,7 +1332,7 @@ def traceroute(ctx: Context, destination: str, source: Optional[str] = None, tim
             if res[node].failed:
                 continue
             node_ret = []
-            if res[node].result is None:
+            if res[node].result is None or res[node].result == {}:
                 continue
             if 'error' in res[node].result:
                 continue
@@ -1341,23 +1341,23 @@ def traceroute(ctx: Context, destination: str, source: Optional[str] = None, tim
             if dev_result is None:
                 continue
 
-            for hop in range(1, len(dev_result)+1):
+            for hop in dev_result.keys():
                 new_res = [{'Hop': hop}]
-                for packet in dev_result[hop].keys():
+                for packet in dev_result[hop]['probes'].keys():
                     if len(new_res) == 1 and len(new_res[0].keys()) == 1:
-                        new_res[0]['Hostname'] = dev_result[hop][packet]['host_name']
-                        new_res[0]['IP'] = dev_result[hop][packet]['ip_address']
-                        new_res[0]['rtt1'] = dev_result[hop][packet]['rtt']
+                        new_res[0]['Hostname'] = dev_result[hop]['probes'][packet]['host_name']
+                        new_res[0]['IP'] = dev_result[hop]['probes'][packet]['ip_address']
+                        new_res[0]['rtt1'] = dev_result[hop]['probes'][packet]['rtt']
                         continue
                     else:
                         matched = False
                         for entry in new_res:
-                            if entry['IP'] == dev_result[hop][packet]['ip_address']:
-                                entry[f'rtt{packet}'] = dev_result[hop][packet]['rtt']
+                            if entry['IP'] == dev_result[hop]['probes'][packet]['ip_address']:
+                                entry[f'rtt{packet}'] = dev_result[hop]['probes'][packet]['rtt']
                                 matched = True
                                 break
                         if not matched:
-                            new_res.append({'Hop': hop, f'rtt{packet}': dev_result[hop][packet]['rtt'], 'IP': dev_result[hop][packet]['ip_address'], 'Hostname': dev_result[hop][packet]['host_name']})
+                            new_res.append({'Hop': hop, f'rtt{packet}': dev_result[hop]['probes'][packet]['rtt'], 'IP': dev_result[hop]['probes'][packet]['ip_address'], 'Hostname': dev_result[hop]['probes'][packet]['host_name']})
                 node_ret += new_res
             ret[node] = node_ret
         return ret

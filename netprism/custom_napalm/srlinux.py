@@ -5,7 +5,97 @@ from napalm.base.helpers import convert, as_number
 import logging
 import datetime
 import jmespath
-import re
+from lark import Lark, Transformer, v_args
+
+TRACEROUTE_GRAMMAR = r"""
+start: line*
+
+line: hop
+    | garbage
+
+hop: HOP_NUM ping ping ping NEWLINE?
+
+// PRIORITIES: Higher number = higher priority
+RTT.3: /\d+(\.\d+)?\s*[a-z]+/
+IP.2: "(" /[0-9.]+/ ")"
+HOP_NUM.1: /\d+(?=\s)/
+hostname: /[^\s()]+/
+
+garbage: /[^\n]*\n/
+
+ping: lost_ping | full_ping | simple_ping
+
+lost_ping: "*"
+full_ping: hostname IP RTT
+simple_ping: RTT
+
+%import common.NEWLINE
+%import common.WS
+%ignore WS
+"""
+
+@v_args(inline=True)
+class TracerouteTransformer(Transformer):
+    def __init__(self):
+        super().__init__()
+        self.result = {}
+        self.last_ip = None
+        self.last_hostname = None
+        self.hop_index = 1
+
+    def HOP_NUM(self, token):
+        return int(token.value)
+    def hostname(self, token):
+        return token.value
+    def IP(self, token):
+        return token.value[1:-1] # Extract content from parentheses
+    def RTT(self, token):
+        return token.value # Returns the full string like "1.234 ms"
+    def lost_ping(self, star_token):
+        return {"type": "lost"}
+    def NEWLINE(self, token):
+        return {"type": "NEWLINE"}
+    def simple_ping(self, rtt_string):
+        return {"type": "simple", "rtt": rtt_string}
+    def full_ping(self, hostname_string, ip_string, rtt_string):
+        return {
+            "type": "full",
+            "hostname": hostname_string,
+            "ip": ip_string,
+            "rtt": rtt_string
+        }
+    def ping(self, ping_data_dictionary):
+        return ping_data_dictionary
+
+    def hop(self, hop_num_token, *pings):
+        hop_num = int(hop_num_token)
+        self.last_ip = None
+        self.last_hostname = None
+        probes = {}
+        for i, ping in enumerate(pings, 1):
+            if ping['type'] == 'NEWLINE':
+                continue
+            probe = {}
+            if ping['type'] == 'lost':
+                probe['rtt'] = None
+                probe['ip_address'] = self.last_ip
+                probe['host_name'] = self.last_hostname
+            else:
+                probe['rtt'] = float(ping['rtt'].split()[0])
+                if ping['type'] == 'simple':
+                    probe['ip_address'] = self.last_ip
+                    probe['host_name'] = self.last_hostname
+                else:
+                    self.last_ip = ping['ip']
+                    self.last_hostname = ping['hostname']
+                    probe['ip_address'] = self.last_ip
+                    probe['host_name'] = self.last_hostname
+            probes[i] = probe
+        self.result[hop_num] = {'probes': probes}
+
+    def start(self, *args):
+        return self.result
+
 
 class CustomSRLDriver(NokiaSRLDriver):
     def __init__(self, hostname, username, password, timeout=60, optional_args=None):
@@ -51,52 +141,11 @@ class CustomSRLDriver(NokiaSRLDriver):
                 return {
                     'error': 'unknown host {}'.format(destination)
                 }
-            hops = result.split("byte packets")[1]
-            hop_list = hops.split("\n")
-            probes = {}
 
-            # Match either:
-            # - hostname (ip) rtt ms
-            # - just rtt ms
-            pattern = re.compile(
-                r'(?:(\S+)\s+\(([\d.]+)\)\s+)?([\d.]+|\*)\s+ms'
-            )
-            ip_address = None
-            host_name = None
-
-            for h in hop_list:
-                if h.strip():
-
-                    h_splits = h.strip().split()
-                    hop_num = int(h_splits[0])  # first item is the hop number
-                    matches = list(pattern.finditer(h))
-
-                    ct_probe = {}
-                    probe_id = 1
-
-                    for match in matches:
-                        if match.group(0) == '*':
-                            ct_probe[probe_id] = {
-                                'rtt': '*',
-                                'ip_address': '*',
-                                'host_name': '*'
-                            }
-                        else:
-                            if match.group(1) and match.group(2):
-                                host_name = match.group(1)
-                                ip_address = match.group(2)
-
-                            rtt = float(match.group(3))
-                            ct_probe[probe_id] = {
-                                'rtt': rtt,
-                                'ip_address': ip_address,
-                                'host_name': host_name
-                            }
-                        probe_id += 1
-
-                    probes[hop_num] = ct_probe
-
-            return {"success": probes}
+            parser = Lark(TRACEROUTE_GRAMMAR, parser="lalr")
+            tree = parser.parse(result)
+            parsed = TracerouteTransformer().transform(tree)
+            return {"success": parsed}
         except Exception as e:
             logging.error("Error occurred : {}".format(e))
 
