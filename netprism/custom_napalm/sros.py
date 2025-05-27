@@ -54,7 +54,7 @@ class TracerouteTransformer(Transformer):
         return token.value[1:-1] # Extract content from parentheses
     def RTT(self, token):
         return token.value # Returns the full string like "1.234 ms"
-    def lost_ping(self, star_token):
+    def lost_ping(self):
         return {"type": "lost"}
     def NEWLINE(self, token):
         return {"type": "NEWLINE"}

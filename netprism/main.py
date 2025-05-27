@@ -128,6 +128,7 @@ def print_table(
         "established": "[ok]",
         "active": "[cyan]",
         "connect": "[warn]",
+        "Unknown Host": "[err]",
     }
 
 
@@ -1335,10 +1336,12 @@ def traceroute(ctx: Context, destination: str, source: Optional[str] = None, tim
             if res[node].result is None or res[node].result == {}:
                 continue
             if 'error' in res[node].result:
+                ret[node] = [{'IP': res[node].result['error']}]
                 continue
             else:
                 dev_result = res[node].result['success']
-            if dev_result is None:
+            if dev_result is None or not bool(dev_result):
+                ret[node] = [{'IP': "Unknown Host"}]
                 continue
 
             for hop in dev_result.keys():

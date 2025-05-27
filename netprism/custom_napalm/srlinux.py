@@ -51,7 +51,7 @@ class TracerouteTransformer(Transformer):
         return token.value[1:-1] # Extract content from parentheses
     def RTT(self, token):
         return token.value # Returns the full string like "1.234 ms"
-    def lost_ping(self, star_token):
+    def lost_ping(self):
         return {"type": "lost"}
     def NEWLINE(self, token):
         return {"type": "NEWLINE"}
@@ -77,7 +77,10 @@ class TracerouteTransformer(Transformer):
                 continue
             probe = {}
             if ping['type'] == 'lost':
-                probe['rtt'] = None
+                probe['rtt'] = '*'
+                if self.last_ip is None:
+                    self.last_ip = '*'
+                    self.last_hostname = '*'
                 probe['ip_address'] = self.last_ip
                 probe['host_name'] = self.last_hostname
             else:
@@ -118,7 +121,10 @@ class CustomSRLDriver(NokiaSRLDriver):
     def ping(self, destination, source="", ttl=None, timeout=None, size=None, count=None, vrf=None):
         return super()._ping(destination, source, ttl, timeout, size, count, vrf)
 
-    def traceroute(self, destination, source="", ttl=255, timeout=2, vrf=""):
+    def traceroute(self, destination, source="", ttl=50, timeout=2, vrf=""):
+        # Connection will timeout after 1 min, we need to make sure traceroute returns before timming out
+        if ttl > 50:
+            ttl = 50
         try:
             if not vrf:
                 vrf = "default"
