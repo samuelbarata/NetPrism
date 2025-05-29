@@ -1136,7 +1136,38 @@ class CustomSRLDriver(NokiaSRLDriver):
         return interfaces
 
     def get_tunnel_table(self):
-        raise NotImplementedError("get_tunnel_table is not implemented for SRLinux")
+        path = "/network-instance[name=*]/tunnel-table"
+        ret = self.device._gnmiGet(prefix='', path=path, pathType="state")
+
+        tunnels = []
+        vrfs = ret['srl_nokia-network-instance:network-instance']
+        for vrf in vrfs:
+            tunnel_table = vrf.get('tunnel-table', {})
+            for tunnel in tunnel_table['srl_nokia-tunnel-tables:ipv4'].get('tunnel', []) + tunnel_table['srl_nokia-tunnel-tables:ipv6'].get('tunnel', []):
+                tunnel_data = {
+                    'ipv4-prefix': tunnel.get('ipv4-prefix'),
+                    'ipv6-prefix': tunnel.get('ipv6-prefix'),
+                    'type': tunnel.get('type').replace('srl_nokia-common:', ''),
+                    'id': tunnel.get('id'),
+                    'protocol': tunnel.get('encapsulation-type'),
+                    'preference': tunnel.get('preference'),
+                    'status': tunnel['fib-programming'].get('status'),
+                }
+                if 'fib-programming' in tunnel:
+                    tunnel_data['status'] = tunnel['fib-programming'].get('status')
+                if 'vxlan' in tunnel:
+                    tunnel_data['vxlan'] = {
+                        'destination-address': tunnel['vxlan'].get('destination-address'),
+                        'source-address': tunnel['vxlan'].get('source-address'),
+                        'time-to-live': tunnel['vxlan'].get('time-to-live'),
+                    }
+                tunnels.append(tunnel_data)
+
+        return tunnels
+
+    def _remove_prefix(self, d, prefix):
+        return {k[len(prefix):] if k.startswith(prefix) else k: v for k, v in d.items()}
+
 
 def dictToList(self, aDict):
         keys_to_update = {}  # Store new keys to add after iteration
