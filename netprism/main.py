@@ -31,6 +31,10 @@ from nornir_utils.plugins.functions import print_result
 import click
 from click.core import Context
 from jinja2 import Environment, TemplateNotFound, select_autoescape, FileSystemLoader
+import types
+
+# Prevent gnmi_pb2 from being imported; would break pygnmi
+sys.modules['napalm_srl.gnmi_pb2'] = types.ModuleType('napalm_srl.gnmi_pb2')
 
 
 PYTHON_PKG_NAME = "netprism"
@@ -41,7 +45,7 @@ DEFAULTS = {
         'password': 'NokiaSrl1!',
         'gnmi_port': 57400,
         'jsonrpc_port': 80,
-        'insecure': True, # Allow jasonrpc 80 instead of 443
+        'insecure': False,
     },
     "junos": {
         'username': 'admin',
@@ -50,6 +54,8 @@ DEFAULTS = {
     "sros": {
         'username': 'admin',
         'password': 'admin',
+        'gnmi_port': 57400,
+        'insecure': False,
     }
 }
 
@@ -358,7 +364,9 @@ def cli(
                     "napalm": {
                         "username": DEFAULTS['junos']['username'],
                         "password": DEFAULTS['junos']['password'],
-                        "extras": {}
+                        "extras": {
+                            "optional_args":{}
+                        }
                     },
                 }
             },
@@ -367,13 +375,20 @@ def cli(
                     "napalm": {
                         "username": DEFAULTS['sros']['username'],
                         "password": DEFAULTS['sros']['password'],
-                        "extras": {}
+                        "extras": {
+                            "optional_args":{
+                                "gnmi_port": DEFAULTS['sros']['gnmi_port'],
+                                "insecure": DEFAULTS['sros']['insecure']
+                            }
+                        }
                     },
                 }
             },
         }
         if cert_file:
             groups["srl"]["connection_options"]["napalm"]["extras"]["optional_args"]["tls_ca"] = cert_file
+            groups["sros"]["connection_options"]["napalm"]["extras"]["optional_args"]["tls_ca"] = cert_file
+            groups["junos"]["connection_options"]["napalm"]["extras"]["optional_args"]["tls_ca"] = cert_file
         if debug:
             NORNIR_DEFAULT_CONFIG.update({"runner": {"plugin": "serial"}})
         try:
@@ -654,6 +669,8 @@ def mac(ctx: Context, field_filter: Optional[List] = None):
         ret = {}
         for node in res:
             if res[node].failed:
+                continue
+            if res[node].result[GET] is None:
                 continue
             node_ret = []
             for dev_result in res[node].result[GET]:
@@ -1047,6 +1064,7 @@ def vlans(ctx: Context, field_filter: Optional[List] = None):
 )
 def es(ctx: Context, field_filter: Optional[List] = None):
     """Displays Ethernet Segments"""
+    #FIXME: SROS
 
     GET = 'get_ethernet_segments'
     HEADERS = [{'name':'Name'}, {'esi':'ESI'}, {'multi-homing-mode': 'MH Mode'}, {'interface': 'Interfaces'}, {'_ni_peers':'NI Peers'}]
@@ -1165,6 +1183,66 @@ def lag(ctx: Context, field_filter: Optional[List] = None):
         result=result,
         headers=HEADERS,
         name="Link Agregation Groups Table",
+        box_type=ctx.obj["box_type"],
+        f_filter=f_filter,
+        i_filter=ctx.obj["i_filter"],
+    )
+
+@cli.command()
+@click.pass_context
+@click.option(
+    "--field-filter",
+    "-f",
+    multiple=True,
+    help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
+)
+def tunnels(ctx: Context, field_filter: Optional[List] = None):
+    """Displays Tunnel Table"""
+
+    GET = 'get_tunnel_table'
+
+    HEADERS = [{'ipv4-prefix':'ipv4-prefix'}, {'id':'tunnel-id'}, {'label':'label'}, {'next-hop': 'next-hop'}, {'preference': 'preference'}, {'protocol':'protocol'}]
+    EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
+
+    def _tunnels(task: Task) -> Result:
+        return napalm_get(task=task, getters=[GET])
+
+    f_filter = (
+        {k: v for k, v in [f.split("=") for f in field_filter]} if field_filter else {}
+    )
+
+    result = ctx.obj["target"].run(
+        task=_tunnels, name=GET, raise_on_error=False
+    )
+
+    if(ctx.obj['debug']):
+        print_result(result)
+
+    def _process_results(res: AggregatedResult) -> AggregatedResult:
+        ret = {}
+        for node in res:
+            if res[node].failed:
+                continue
+            node_ret = []
+            for dev_result in res[node].result[GET]:
+                new_res = {}
+
+                for key in dev_result:
+                    if key in EXISTING_HEADERS:
+                        new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: dev_result[key]})
+
+                node_ret.append(new_res)
+
+            ret[node] = node_ret
+        return ret
+
+    processed_result = _process_results(result)
+
+    print_report(
+        processed_result=processed_result,
+        result=result,
+        headers=HEADERS,
+        name="Tunnel Table",
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],

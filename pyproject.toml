@@ -20,6 +20,8 @@ dependencies = [
     "jmespath (>=1.0.1,<2.0.0)",
     "jinja2 (>=3.1.6,<4.0.0)",
     "lark (>=1.2.2,<2.0.0)",
+    "pygnmi (>=0.8.15,<0.9.0)",
+    "ruamel.yaml (>=0.18.10,<0.18.11)",
 ]
 
 [build-system]

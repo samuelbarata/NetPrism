@@ -2,10 +2,13 @@ from napalm_srl.srl import NokiaSRLDriver, SRLAPI
 # https://github.com/napalm-automation-community/napalm-srlinux/blob/main/napalm_srl/srl.py
 
 from napalm.base.helpers import convert, as_number
+from napalm.base.exceptions import ConnectionException
 import logging
 import datetime
 import jmespath
 from lark import Lark, Transformer, v_args
+from pygnmi.client import gNMIclient, gNMIException
+from grpc import StatusCode
 
 TRACEROUTE_GRAMMAR = r"""
 start: line*
@@ -99,6 +102,110 @@ class TracerouteTransformer(Transformer):
     def start(self, *args):
         return self.result
 
+class SRLAPIPatched(SRLAPI):
+    def __init__(self, hostname, username, password, timeout=60, optional_args=None):
+        super().__init__(hostname, username, password, timeout, optional_args)
+
+    def open(self):
+        """Establish a connection using pygnmi"""
+        try:
+            # Read certs
+            ssl_options = {}
+            if self.tls_cert:
+                ssl_options["certfile"] = self.tls_cert
+            if self.tls_key:
+                ssl_options["keyfile"] = self.tls_key
+            if self.tls_ca:
+                ssl_options["ca_certs"] = self.tls_ca
+            elif self.insecure:
+                logging.warning("Connecting without verifying TLS certificate (insecure=True). Not recommended for production.")
+                ssl_options["insecure"] = True
+
+            # pygnmi expects a tuple (host, port)
+            self._client = gNMIclient(
+                target=(self.hostname, self.gnmi_port),
+                username=self.username,
+                password=self.password,
+                insecure=self.insecure,
+                path_cert=self.tls_cert,
+                path_key=self.tls_key,
+                path_root=self.tls_ca,
+                timeout=self.timeout,
+                target_name_override=self.target_name if self.target_name else None,
+            )
+            self._client.connect()
+
+        except Exception as e:
+            logging.error(f"Error in Connection to {self.hostname} via gNMI: {e}")
+            raise ConnectionException(e) from e
+
+    def _gnmiGet(self, prefix, path, pathType):
+        """
+        Executes a gNMI Get request using pygnmi
+        """
+        try:
+            if isinstance(path, (tuple,set)):
+                paths = [p for p in path]
+            elif isinstance(path, str):
+                paths = [path]
+            else:
+                paths = path
+            # paths = path if isinstance(path, list) else [path]
+            get_args = {
+                "path": paths,
+                "encoding": self.encoding.lower(),  # pygnmi uses lowercase
+                "datatype": pathType.lower(),      # e.g., config/state/all
+            }
+            if prefix:
+                get_args["prefix"] = prefix
+
+            response = self._client.get(**get_args)
+            notifications = response.get("notification", [])
+            return self._mergeToSingleDict(notifications)
+        except gNMIException as gnmi_ex:
+            if gnmi_ex.orig_exc.args[0].code == StatusCode.INVALID_ARGUMENT:
+                return ""
+            else:
+                raise gnmi_ex
+        except Exception as e:
+            logging.error(f"Error executing gNMI Get: {e}")
+            raise e
+
+    def _mergeToSingleDict(self, notifications):
+        """
+        Merge pygnmi notifications into a single nested dict.
+        Handles missing paths (e.g., from wildcard queries like interface[name=*]).
+        """
+        result = {}
+
+        for notif in notifications:
+            prefix = notif.get("prefix", "")
+            updates = notif.get("update", [])
+
+            for update in updates:
+                # Handle case where update has no path (e.g., result of a wildcard query)
+                if update.get("path") is None:
+                    full_path = prefix.strip("/").split("/") if prefix else []
+                else:
+                    full_path = []
+                    if prefix:
+                        full_path.extend(prefix.strip("/").split("/"))
+                    full_path.extend(update["path"].strip("/").split("/"))
+
+                # If full_path is empty, set the whole result to the value
+                if not full_path:
+                    result = update["val"]
+                    continue
+
+                # Navigate and assign
+                current = result
+                for part in full_path[:-1]:
+                    if part not in current:
+                        current[part] = {}
+                    current = current[part]
+                current[full_path[-1]] = update["val"]
+
+        return result
 
 class CustomSRLDriver(NokiaSRLDriver):
     def __init__(self, hostname, username, password, timeout=60, optional_args=None):
@@ -116,7 +223,35 @@ class CustomSRLDriver(NokiaSRLDriver):
             datefmt="%Y-%m-%d %H:%M:%S",  # Date format
         )
 
-        super().__init__(hostname, username, password, timeout, opt_args)
+        ############### SUPER ###############
+        """Constructor."""
+        self.device = None
+        self._metadata = None
+        # still need to figure out why these variables are used
+        self.config_session = None
+        self.locked = False
+        self.profile = ["srl"]
+        self.platform = "srl"
+
+        self.hostname = hostname
+        self.username = username
+        self.password = password
+        self.timeout = timeout
+        self.private_candidate_name = None
+
+        self._stub = None
+        self._channel = None
+        self.running_format = optional_args.get("running_format","json") if optional_args else "json"
+
+        self.device = SRLAPIPatched(hostname, username, password, timeout=60, optional_args=optional_args)
+
+        self.pending_commit = False
+        # Whether to save changes to startup config, default False
+        self.commit_mode = "save" if optional_args and optional_args.get("commit_save",False) else "now"
+        self.tmp_cfgfile = None
+        self.chkpoint_id = 0
+
+        # super().__init__(hostname, username, password, timeout, opt_args)
 
     def ping(self, destination, source="", ttl=None, timeout=None, size=None, count=None, vrf=None):
         return super()._ping(destination, source, ttl, timeout, size, count, vrf)
@@ -999,6 +1134,9 @@ class CustomSRLDriver(NokiaSRLDriver):
                     break
 
         return interfaces
+
+    def get_tunnel_table(self):
+        raise NotImplementedError("get_tunnel_table is not implemented for SRLinux")
 
 def dictToList(self, aDict):
         keys_to_update = {}  # Store new keys to add after iteration

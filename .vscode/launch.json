@@ -211,6 +211,25 @@
             ],
         },
         {
+            "name": "Python: Run netprism cli CLab Tunnels",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/netprism/main.py",
+            "pythonPath": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "-t",
+                "/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml",
+                "--cert-file",
+                "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
+                "--inv-filter",
+                "site=wan1",
+                // "--debug",
+                "tunnels"
+            ],
+        },
+        {
             "name": "Python: Run netprism cli CLab PING",
             "type": "python",
             "request": "launch",
