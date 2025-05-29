@@ -1,4 +1,6 @@
 import sys
+import types
+sys.modules['napalm_srl.gnmi_pb2'] = types.ModuleType('napalm_srl.gnmi_pb2')
 import pytest
 
 @pytest.fixture(scope="session", autouse=True)

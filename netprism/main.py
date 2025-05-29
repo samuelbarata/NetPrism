@@ -1,8 +1,12 @@
+import sys
+import types
+# Prevent gnmi_pb2 from being imported; would break pygnmi
+sys.modules['napalm_srl.gnmi_pb2'] = types.ModuleType('napalm_srl.gnmi_pb2')
+
 from importlib.metadata import PackageNotFoundError
 from typing import Any, Dict, List, Optional, Callable
 import importlib
 from fnmatch import fnmatch
-import sys
 import os
 import tempfile
 from datetime import timedelta
@@ -15,7 +19,7 @@ from nornir.core import Nornir
 
 from nornir.core.task import Result, Task, AggregatedResult, MultiResult
 from nornir_napalm.plugins.tasks import napalm_get, napalm_cli, napalm_configure, napalm_ping
-from napalm_traceroute import napalm_traceroute
+from netprism.napalm_traceroute import napalm_traceroute
 
 from nornir.core.inventory import Host
 
@@ -31,11 +35,6 @@ from nornir_utils.plugins.functions import print_result
 import click
 from click.core import Context
 from jinja2 import Environment, TemplateNotFound, select_autoescape, FileSystemLoader
-import types
-
-# Prevent gnmi_pb2 from being imported; would break pygnmi
-sys.modules['napalm_srl.gnmi_pb2'] = types.ModuleType('napalm_srl.gnmi_pb2')
-
 
 PYTHON_PKG_NAME = "netprism"
 
