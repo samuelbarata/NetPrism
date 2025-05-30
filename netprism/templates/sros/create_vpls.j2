@@ -1,0 +1,17 @@
+/configure service vpls "{{ details.get('vpls') }}" admin-state enable{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" customer "{{ details.get('customer') }}"{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" service-mtu {{ details.get('mtu') }}{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" vxlan instance {{ details.get('vxlan_instance') }} vni {{ details.get('evi') }}{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" bgp {{ details.get('bgp_evpn_instance') }} route-distinguisher {{ details.get('evpn_route_distinguisher')}}{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" bgp {{ details.get('bgp_evpn_instance') }} route-target export "{{ details.get('export_rt') }}"{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" bgp {{ details.get('bgp_evpn_instance') }} route-target import "{{ details.get('import_rt') }}"{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" bgp-evpn evi {{ details.get('evi') }}{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" bgp-evpn vxlan {{ details.get('vxlan_instance') }} admin-state enable{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" bgp-evpn vxlan {{ details.get('vxlan_instance') }} vxlan-instance {{ details.get('vxlan_instance') }}{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" bgp-evpn vxlan {{ details.get('vxlan_instance') }} ecmp {{ details.get('ecmp', 2) }}{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" bgp-evpn vxlan {{ details.get('vxlan_instance') }} routes auto-disc advertise true{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" bgp {{ details.get('bgp_mpls_instance') }} route-distinguisher "{{ details.get('mpls_route_distinguisher') }}"{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" bgp {{ details.get('bgp_mpls_instance') }} route-target export "{{ details.get('mpls_export_rt') }}"{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" bgp {{ details.get('bgp_mpls_instance') }} route-target import "{{ details.get('mpls_import_rt') }}"{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" bgp-evpn mpls {{ details.get('bgp_mpls_instance') }} admin-state enable{{ '\n' }}
+/configure service vpls "{{ details.get('vpls') }}" bgp-evpn mpls {{ details.get('bgp_mpls_instance') }} auto-bind-tunnel resolution filter resolution-filter sr-isis true{{ '\n' }}

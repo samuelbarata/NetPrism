@@ -35,6 +35,9 @@ from nornir_utils.plugins.functions import print_result
 import click
 from click.core import Context
 from jinja2 import Environment, TemplateNotFound, select_autoescape, FileSystemLoader
+from nornir.core.filter import F
+from functools import reduce
+import operator
 
 PYTHON_PKG_NAME = "netprism"
 
@@ -106,6 +109,25 @@ def get_project_version():
         version = "Version not found"
 
     return version
+
+def build_nornir_filter(filter_dict):
+    """
+    Builds a Nornir F filter from a dict where:
+    - Each key is a field name
+    - Each value is a list of values to OR together
+    - Each field is ANDed together
+    """
+    and_filters = []
+
+    for key, values in filter_dict.items():
+        or_filters = [F(**{f"{key}__eq": value}) for value in values]
+        combined_or = reduce(operator.or_, or_filters)
+        and_filters.append(combined_or)
+
+    if not and_filters:
+        return F()  # empty filter (matches everything)
+
+    return reduce(operator.and_, and_filters)
 
 def print_table(
     title: str,
@@ -414,16 +436,25 @@ def cli(
     else:
         fabric = InitNornir(config_file=cfg)
 
-    i_filter = (
-        {k: v for k, v in [f.split("=") for f in inv_filter]} if inv_filter else {}
-    )
+    filters = {}
+    for filt in inv_filter:
+        if "=" not in filt:
+            raise ValueError(f"Invalid inventory filter {filt}. Use <field>=<glob-pattern> format, e.g. -i site=dc1 -i hostname=leaf1")
+        filt = filt.strip().split("=")
+        if filt[0] not in filters:
+            filters[filt[0]] = [filt[1]]
+        else:
+            filters[filt[0]].append(filt[1])
+    f_filter = build_nornir_filter(filters)
+
     target: Nornir
-    if i_filter:
-        target = fabric.filter(**i_filter)
-    else:
-        target = fabric
+    len_pre_filter = len(fabric.inventory.hosts)
+    target = fabric.filter(f_filter)
+    if len(target.inventory.hosts) != len_pre_filter:
+        print(f"Filtered inventory with {filters}.\nRemaining hosts: {[t for t in target.inventory.hosts.keys()]}")
+
     ctx.obj["target"] = target
-    ctx.obj["i_filter"] = i_filter
+    ctx.obj["i_filter"] = filters
 
     if box_type:
         box_type = box_type.upper()
@@ -1457,7 +1488,13 @@ def traceroute(ctx: Context, destination: str, source: Optional[str] = None, tim
 
 @cli.group
 @click.pass_context
-def configure(ctx: Context, devices: Optional[List] = None):
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    type=bool,
+    help="Dry run",
+)
+def configure(ctx: Context, devices: Optional[List] = None, dry_run: Optional[bool] = False):
     """Configure nodes"""
     pass
 
@@ -1530,6 +1567,43 @@ def user(ctx: Context, username: str, password: Optional[str] = None, rsa_key: O
     if(ctx.obj['debug'] or dry_run or SHOW_RESULT_ON_CONFIGURE):
         print_result(result)
 
+@configure.command()
+@click.pass_context
+@click.option(
+    "--interface",
+    "-i",
+    default=None,
+    multiple=False,
+    type=str,
+    help="Interface to be added to the Network Instancer",
+)
+@click.option(
+    "--network-instance",
+    "-n",
+    default=None,
+    multiple=False,
+    type=str,
+    help="Network Instance to which the interface should be assigned",
+)
+def assign_interface(ctx: Context, network_instance: str, interface: str, dry_run: Optional[bool] = False):
+    """Assing interface to Network Instancer"""
+
+    details = {'ni': network_instance, 'int': interface}
+
+    def _assign_interface(task: Task) -> Result:
+        try:
+            template = jEnv.get_template(f"{task.host.platform}/assign_int_to_ni.j2")
+        except TemplateNotFound:
+            return Result(host=task.host, failed=True, result=f"Template not found for platform {task.host.platform}")
+        config = template.render(details=details)
+        return napalm_configure(task=task, dry_run=dry_run, configuration=config)
+
+    result = ctx.obj["target"].run(
+        task=_assign_interface, name='assign_interface', raise_on_error=False
+    )
+
+    if(ctx.obj['debug'] or dry_run or SHOW_RESULT_ON_CONFIGURE):
+        print_result(result)
 
 @configure.command()
 @click.pass_context
@@ -1612,6 +1686,135 @@ def mac_vrf(ctx: Context, vrf: str, vxlan_interface: str, bgp_instance: int, bgp
 
     if(ctx.obj['debug'] or dry_run or SHOW_RESULT_ON_CONFIGURE):
         print_result(result)
+
+@configure.command()
+@click.pass_context
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    type=bool,
+    help="Dry run",
+)
+@click.option(
+    "--vpls",
+    default=None,
+    type=str,
+    help="VPLS name to create (e.g. vpls-100)",
+)
+@click.option(
+    "--customer",
+    default=1,
+    type=int,
+    help="VPLS customer ID (e.g. 1)",
+)
+@click.option(
+    "--mtu",
+    default=9000,
+    type=int,
+    help="VPLS MTU (e.g. 9000)",
+)
+@click.option(
+    "--vxlan-instance",
+    default=1,
+    type=int,
+    help="VxLAN instance fo use for vpls evpn",
+)
+@click.option(
+    "--bgp-evpn-instance",
+    default=1,
+    type=int,
+    help="BGP instance to assign to the evpn",
+)
+@click.option(
+    "--bgp-mpls-instance",
+    default=2,
+    type=int,
+    help="BGP instance to assign to the mpls",
+)
+@click.option(
+    "--bgp-evi",
+    default=None,
+    type=int,
+    help="BGP EVI to assign to the evpn",
+)
+@click.option(
+    "--bgp-ecmp",
+    default=1,
+    type=int,
+    help="BGP equal-cost multipath (ECMP)"
+)
+@click.option(
+    "--evpn-route-distinguisher",
+    default=None,
+    type=str,
+    help="BGP MPLS route distinguisher (e.g. 10.0.0.0:100)",
+)
+@click.option(
+    "--route-target-export",
+    default=None,
+    type=str,
+    help="BGP route-target to export to evpn (e.g. target:100:1)",
+)
+@click.option(
+    "--route-target-import",
+    default=None,
+    type=str,
+    help="BGP route-target to import from evpn (e.g. target:100:1)",
+)
+@click.option(
+    "--mpls-route-distinguisher",
+    default=None,
+    type=str,
+    help="BGP MPLS route distinguisher (e.g. 10.0.0.0:111)",
+)
+@click.option(
+    "--mpls-export-rt",
+    default=None,
+    type=str,
+    help="BGP MPLS route-target to export (e.g. target:200952:1)",
+)
+@click.option(
+    "--mpls-import-rt",
+    default=None,
+    type=str,
+    help="BGP MPLS route-target to import (e.g. target:200952:1)",
+)
+def vpls(ctx: Context, vpls: str, bgp_evi: int, route_target_export: str, route_target_import: str, mpls_import_rt: str, mpls_export_rt: str, mpls_route_distinguisher: str, evpn_route_distinguisher:str, vxlan_instance: Optional[int] = 1, mtu: Optional[int] = 9000, customer: Optional[int] = 1, bgp_ecmp: Optional[int] = 1, bgp_evpn_instance: Optional[int] = 1, bgp_mpls_instance: Optional[int] = 1, dry_run: Optional[bool] = False):
+    """Create new MAC VRF"""
+
+    options = {
+        'vpls': vpls,
+        'customer': customer,
+        'mtu': mtu,
+        'vxlan_instance': vxlan_instance,
+        'evi': bgp_evi,
+        'ecmp': bgp_ecmp,
+        'export_rt': route_target_export,
+        'import_rt': route_target_import,
+        'mpls_route_distinguisher': mpls_route_distinguisher,
+        'mpls_export_rt': mpls_export_rt,
+        'mpls_import_rt': mpls_import_rt,
+        'evpn_route_distinguisher': evpn_route_distinguisher,
+        'bgp_evpn_instance': bgp_evpn_instance,
+        'bgp_mpls_instance': bgp_mpls_instance,
+    }
+
+    def _vpls(task: Task) -> Result:
+        try:
+            template = jEnv.get_template(f"{task.host.platform}/create_vpls.j2")
+        except TemplateNotFound:
+            return Result(host=task.host, failed=True, result=f"Template not found for platform {task.host.platform}")
+
+        config = template.render(details=options)
+        return napalm_configure(task=task, dry_run=dry_run, configuration=config)
+
+    result = ctx.obj["target"].run(
+        task=_vpls, name='Create VPLS', raise_on_error=False
+    )
+
+    if(ctx.obj['debug'] or dry_run or SHOW_RESULT_ON_CONFIGURE):
+        print_result(result)
+
 
 if __name__ == "__main__":
     cli(obj={})

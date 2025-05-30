@@ -10,3 +10,5 @@ set / network-instance {{ options.get('vrf') }} protocols bgp-evpn bgp-instance 
 set / network-instance {{ options.get('vrf') }} protocols bgp-evpn bgp-instance {{ options.get('bgp_instance') }} ecmp {{ options.get('ecmp') }}{{ '\n' }}
 set / network-instance {{ options.get('vrf') }} protocols bgp-vpn bgp-instance {{ options.get('bgp_instance') }} route-target export-rt {{ options.get('export_rt') }}{{ '\n' }}
 set / network-instance {{ options.get('vrf') }} protocols bgp-vpn bgp-instance {{ options.get('bgp_instance') }} route-target import-rt {{ options.get('import_rt') }}{{ '\n' }}
+set / network-instance {{ options.get('vrf') }} bridge-table proxy-arp dynamic-learning admin-state enable
+set / network-instance {{ options.get('vrf') }} bridge-table proxy-arp admin-state enable
