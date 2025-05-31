@@ -413,5 +413,18 @@
                 "sys-info"
             ]
         },
+        {
+            "name": "Python: Debug Tests with Poetry",
+            "type": "python",
+            "request": "launch",
+            "module": "pytest",
+            "justMyCode": false,
+            "console": "integratedTerminal",
+            "env": {
+                "POETRY_ACTIVE": "1"
+            },
+            "pythonPath": "${workspaceFolder}/.venv/bin/python",
+            "cwd": "${workspaceFolder}"
+        }
     ]
   }

@@ -1,0 +1,418 @@
+name: netprism-demo
+prefix: ""
+
+mgmt:
+  network: samuel
+  ipv4-subnet: 172.80.80.0/24
+
+topology:
+  kinds:
+    nokia_sros:
+      image: vrnetlab/nokia_sros:24.7.R2
+      license: /opt/nokia/sros/license-sros_R24.txt
+    nokia_srlinux:
+      image: ghcr.io/nokia/srlinux:24.10.1
+      type: ixrd2l
+    linux:
+      image: samuelbarata/network-multitool:latest
+      binds:
+        - ./send.py:/send.py
+        - ./recieve.py:/recieve.py
+    juniper_vjunosswitch:
+      image: vrnetlab/juniper_vjunos-switch:23.2R1.14
+    juniper_vjunosrouter:
+      image: vrnetlab/juniper_vjunos-router:23.2R1.15
+    juniper_vjunosevolved:
+      image: vrnetlab/juniper_vjunosevolved:23.4R2-S2.1
+    # juniper_vqfx:
+    #   image: vrnetlab/vr-vqfx:20.2R1.10
+
+  nodes:
+    ### CORE ###
+    provider1:
+      kind: nokia_sros
+      group: core
+      mgmt-ipv4: 172.80.80.91
+      startup-config: configs/provider/provider1.partial.cfg
+      labels:
+        site: provider
+        role: core
+    provider2:
+      kind: nokia_sros
+      group: core
+      mgmt-ipv4: 172.80.80.92
+      startup-config: configs/provider/provider2.partial.cfg
+      labels:
+        site: provider
+        role: core
+    provider3:
+      kind: nokia_sros
+      group: core
+      mgmt-ipv4: 172.80.80.93
+      startup-config: configs/provider/provider3.partial.cfg
+      labels:
+        site: provider
+        role: core
+    provider4:
+      kind: nokia_sros
+      group: core
+      mgmt-ipv4: 172.80.80.94
+      startup-config: configs/provider/provider4.partial.cfg
+      labels:
+        site: provider
+        role: core
+    provider5:
+      kind: nokia_sros
+      group: core
+      mgmt-ipv4: 172.80.80.95
+      startup-config: configs/provider/provider5.partial.cfg
+      labels:
+        site: provider
+        role: core
+    ### PE ###
+    dc1dcgw1:
+      kind: nokia_sros
+      group: pe
+      mgmt-ipv4: 172.80.80.51
+      startup-config: configs/wan1/dc1dcgw1.partial.cfg
+      type: sr-1
+      labels:
+        site: wan1
+        role: pe
+    dc1dcgw2:
+      kind: nokia_sros
+      group: pe
+      mgmt-ipv4: 172.80.80.52
+      startup-config: configs/wan1/dc1dcgw2.partial.cfg
+      type: sr-1
+      labels:
+        site: wan1
+        role: pe
+    dc2dcgw1:
+      kind: nokia_sros
+      group: pe
+      mgmt-ipv4: 172.80.80.53
+      startup-config: configs/wan1/dc2dcgw1.partial.cfg
+      type: sr-1
+      labels:
+        site: wan1
+        role: pe
+    pe30:
+      kind: nokia_sros
+      mgmt-ipv4: 172.80.80.54
+      type: sr-1
+      labels:
+        site: wan2
+        role: pe
+    # ### SPINES ###
+    spine1dc1:
+      kind: nokia_srlinux
+      type: ixrd3l
+      group: spine
+      mgmt-ipv4: 172.80.80.21
+      startup-config: configs/dc1/spine1.cfg
+      labels:
+        site: dc1
+        role: spine
+    spine2dc1:
+      kind: nokia_srlinux
+      type: ixrd3l
+      group: spine
+      mgmt-ipv4: 172.80.80.22
+      startup-config: configs/dc1/spine2.cfg
+      labels:
+        site: dc1
+        role: spine
+    spine1dc2:
+      kind: nokia_srlinux
+      type: ixrd3l
+      group: spine
+      mgmt-ipv4: 172.80.80.23
+      startup-config: configs/dc2/spine1.cfg
+      labels:
+        site: dc2
+        role: spine
+    ### LEAFS ###
+    leaf1dc1:
+      kind: nokia_srlinux
+      mgmt-ipv4: 172.80.80.11
+      startup-config: configs/dc1/leaf1.cfg
+      group: leaf
+      labels:
+        site: dc1
+        role: leaf
+    leaf2dc1:
+      kind: nokia_srlinux
+      mgmt-ipv4: 172.80.80.12
+      startup-config: configs/dc1/leaf2.cfg
+      group: leaf
+      labels:
+        site: dc1
+        role: leaf
+    leaf3dc1:
+      kind: nokia_srlinux
+      mgmt-ipv4: 172.80.80.13
+      startup-config: configs/dc1/leaf3.cfg
+      group: leaf
+      labels:
+        site: dc1
+        role: leaf
+    leaf4dc1:
+      kind: nokia_srlinux
+      startup-config: configs/dc1/leaf4.cfg
+      mgmt-ipv4: 172.80.80.14
+      group: leaf
+      labels:
+        site: dc1
+        role: leaf
+    leaf1dc2:
+      kind: nokia_srlinux
+      mgmt-ipv4: 172.80.80.15
+      startup-config: configs/dc2/leaf1.cfg
+      group: leaf
+      labels:
+        site: dc2
+        role: leaf
+    leaf2dc2:
+      kind: nokia_srlinux
+      mgmt-ipv4: 172.80.80.16
+      startup-config: configs/dc2/leaf2.cfg
+      group: leaf
+      labels:
+        site: dc2
+        role: leaf
+    ### CLIENTS ###
+    c1dc1:
+      kind: linux
+      mgmt-ipv4: 172.80.80.31
+      exec:
+        - ip address add 10.128.1.1/24 dev eth1
+        - ip -6 address add 2002::10:128:1:1/96 dev eth1
+        - iperf3 -s -p 5201 -D > iperf1_1.log
+        - iperf3 -s -p 5202 -D > iperf1_2.log
+        - iperf3 -s -p 5203 -D > iperf1_3.log
+        - iperf3 -s -p 5204 -D > iperf1_4.log
+        - iperf3 -s -p 5205 -D > iperf1_5.log
+        - iperf3 -s -p 5206 -D > iperf1_6.log
+        - iperf3 -s -p 5207 -D > iperf1_7.log
+        - iperf3 -s -p 5208 -D > iperf1_8.log
+        - iperf3 -s -p 5209 -D > iperf1_9.log
+      group: server
+      labels:
+        site: dc1
+        role: server
+    c2dc1:
+      kind: linux
+      mgmt-ipv4: 172.80.80.32
+      exec:
+        - ip address add 10.128.2.2/24 dev eth1
+        - ip -6 address add 2002::10:128:2:2/96 dev eth1
+        - iperf3 -s -p 5201 -D > iperf2_1.log
+        - iperf3 -s -p 5202 -D > iperf2_2.log
+        - iperf3 -s -p 5203 -D > iperf2_3.log
+        - iperf3 -s -p 5204 -D > iperf2_4.log
+        - iperf3 -s -p 5205 -D > iperf2_5.log
+        - iperf3 -s -p 5206 -D > iperf2_6.log
+        - iperf3 -s -p 5207 -D > iperf2_7.log
+        - iperf3 -s -p 5208 -D > iperf2_8.log
+        - iperf3 -s -p 5209 -D > iperf2_9.log
+      group: server
+      labels:
+        site: dc1
+        role: server
+    c3dc1:
+      kind: linux
+      mgmt-ipv4: 172.80.80.33
+      exec:
+        - ip address add 10.128.1.3/24 dev eth1
+        - ip -6 address add 2002::10:128:1:3/96 dev eth1
+      group: server
+      labels:
+        site: dc1
+        role: server
+    c4dc1:
+      kind: linux
+      mgmt-ipv4: 172.80.80.34
+      exec:
+        - ip address add 10.128.1.4/24 dev eth1
+        - ip -6 address add 2002::10:128:1:4/96 dev eth1
+      group: server
+      labels:
+        site: dc1
+        role: server
+    c5dc1:
+      kind: linux
+      mgmt-ipv4: 172.80.80.35
+      exec:
+        - ip address add 10.128.2.5/24 dev eth1
+        - ip -6 address add 2002::10:128:2:5/96 dev eth1
+      group: server
+      labels:
+        site: dc1
+        role: server
+    c6dc1:
+      kind: linux
+      mgmt-ipv4: 172.80.80.36
+      exec:
+        - ip link add link eth1 name eth1.1 type vlan id 1
+        - ifconfig eth1 down
+        - ifconfig eth1 up
+        - ip address add 10.128.1.6/24 dev eth1.1
+        - ip -6 address add 2002::10:128:1:6/96 dev eth1.1
+      group: server
+      labels:
+        site: dc1
+        role: server
+    c7:
+      kind: linux
+      mgmt-ipv4: 172.80.80.37
+      exec:
+        - ip address add 10.128.3.7/24 dev eth1
+        - ip -6 address add 2002::10:128:3:7/96 dev eth1
+      group: server
+      labels:
+        role: server
+    c8dc2:
+      kind: linux
+      mgmt-ipv4: 172.80.80.38
+      exec:
+        - ip address add 10.128.1.8/24 dev eth1
+        - ip -6 address add 2002::10:128:1:8/96 dev eth1
+      group: server
+      labels:
+        site: dc2
+        role: server
+    c9dc2:
+      kind: linux
+      mgmt-ipv4: 172.80.80.39
+      exec:
+        - ip address add 10.128.2.9/24 dev eth1
+        - ip -6 address add 2002::10:128:2:9/96 dev eth1
+      group: server
+      labels:
+        site: dc2
+        role: server
+    c10dc1:
+      kind: linux
+      mgmt-ipv4: 172.80.80.40
+      exec:
+        - ip link add bond0 type bond mode 802.3ad
+        - ip link set dev eth1 down
+        - ip link set dev eth2 down
+        - ip link set dev bond0 down
+        - ip link set eth1 master bond0
+        - ip link set eth2 master bond0
+        - ip link add link bond0 name bond0.1 type vlan id 1
+        - ifconfig bond0 up
+        - ip link set dev eth1 up
+        - ip link set dev eth2 up
+        - ip address add 10.128.1.10/24 dev bond0.1
+        - ip -6 address add 2002::10:128:1:10/96 dev bond0.1
+        - ip link set bond0.1 up
+      group: server
+      labels:
+        site: dc1
+        role: server
+    c11dc1:
+      kind: linux
+      mgmt-ipv4: 172.80.80.41
+      exec:
+        - ip link set dev eth1 address 02:00:00:01:03:11
+        - ip address add 10.128.3.11/24 dev eth1
+        - ip -6 address add 2002::10:128:3:11/96 dev eth1
+        - iperf3 -s -p 5201 -D > iperf3_1.log
+        - iperf3 -s -p 5202 -D > iperf3_2.log
+        - iperf3 -s -p 5203 -D > iperf3_3.log
+        - iperf3 -s -p 5204 -D > iperf3_4.log
+        - iperf3 -s -p 5205 -D > iperf3_5.log
+        - iperf3 -s -p 5206 -D > iperf3_6.log
+        - iperf3 -s -p 5207 -D > iperf3_7.log
+        - iperf3 -s -p 5208 -D > iperf3_8.log
+        - iperf3 -s -p 5209 -D > iperf3_9.log
+      group: server
+      labels:
+        site: dc1
+        role: server
+    c12dc1:
+      kind: linux
+      mgmt-ipv4: 172.80.80.42
+      exec:
+        - ip link set dev eth1 address 02:00:00:01:03:12
+        - ip address add 10.128.3.12/24 dev eth1
+        - ip -6 address add 2002::10:128:3:12/96 dev eth1
+      group: server
+      labels:
+        site: dc1
+        role: server
+    c13dc2:
+      kind: linux
+      mgmt-ipv4: 172.80.80.43
+      exec:
+        - ip link set dev eth1 address 02:00:00:02:03:13
+        - ip address add 10.128.3.13/24 dev eth1
+        - ip -6 address add 2002::10:128:3:13/96 dev eth1
+      group: server
+      labels:
+        site: dc2
+        role: server
+
+  links:
+    # clients ethX (1+)
+    # SR OS ethX (1+)
+    # SR Linux e1-1 or breakouts: ethernet-1/3/1 (1+)
+    # Juniper et-0/0/X (or ge-0/0/X, xe-0/0/X) (0+)
+    ############## WAN 1 ##############
+    ## CORE - CORE ##
+    - endpoints: ["provider1:eth1", "provider2:eth2"]
+    - endpoints: ["provider2:eth1", "provider3:eth2"]
+    - endpoints: ["provider3:eth1", "provider4:eth2"]
+    - endpoints: ["provider4:eth1", "provider5:eth2"]
+    - endpoints: ["provider5:eth1", "provider1:eth2"]
+    ## DCGW - CORE ##
+    - endpoints: ["dc1dcgw1:eth3", "provider2:eth3"]
+    - endpoints: ["dc1dcgw2:eth3", "provider3:eth3"]
+    - endpoints: ["dc2dcgw1:eth3", "provider5:eth3"]
+    - endpoints: ["dc2dcgw1:eth4", "provider5:eth4"]
+    - endpoints: ["pe30:eth1", "provider4:eth3"]
+
+    ##############  DC 1 ##############
+    ## DCGW - SPINE ##
+    - endpoints: ["dc1dcgw1:eth1", "spine1dc1:e1-31"]
+    - endpoints: ["dc1dcgw2:eth1", "spine1dc1:e1-32"]
+    - endpoints: ["dc1dcgw1:eth2", "spine2dc1:e1-31"]
+    - endpoints: ["dc1dcgw2:eth2", "spine2dc1:e1-32"]
+    ## SPINE - LEAF ##
+    - endpoints: ["spine1dc1:e1-1", "leaf1dc1:e1-49"]
+    - endpoints: ["spine1dc1:e1-2", "leaf2dc1:e1-49"]
+    - endpoints: ["spine1dc1:e1-3", "leaf3dc1:e1-49"]
+    - endpoints: ["spine1dc1:e1-4", "leaf4dc1:e1-49"]
+    - endpoints: ["spine2dc1:e1-1", "leaf1dc1:e1-50"]
+    - endpoints: ["spine2dc1:e1-2", "leaf2dc1:e1-50"]
+    - endpoints: ["spine2dc1:e1-3", "leaf3dc1:e1-50"]
+    - endpoints: ["spine2dc1:e1-4", "leaf4dc1:e1-50"]
+    ## CLIENT - LEAF ##
+    - endpoints: ["leaf1dc1:e1-1", "c1dc1:eth1"]
+    - endpoints: ["leaf2dc1:e1-1", "c2dc1:eth1"]
+    - endpoints: ["leaf3dc1:e1-1", "c3dc1:eth1"]
+    - endpoints: ["leaf4dc1:e1-1", "c4dc1:eth1"]
+    - endpoints: ["leaf4dc1:e1-2", "c5dc1:eth1"]
+    - endpoints: ["leaf1dc1:e1-2", "c10dc1:eth1"]
+    - endpoints: ["leaf2dc1:e1-2", "c10dc1:eth2"]
+    - endpoints: ["leaf1dc1:e1-3", "c11dc1:eth1"]
+    - endpoints: ["leaf4dc1:e1-3", "c12dc1:eth1"]
+    ## CLIENT - DCGW ##
+    - endpoints: ["c6dc1:eth1", "dc1dcgw1:eth4"]
+
+    ##############  DC 2 ##############
+    ## DCGW - SPINE ##
+    - endpoints: ["dc2dcgw1:eth1", "spine1dc2:e1-31"]
+    ## SPINE - LEAF ##
+    - endpoints: ["spine1dc2:e1-1", "leaf1dc2:e1-50"]
+    - endpoints: ["spine1dc2:e1-2", "leaf2dc2:e1-50"]
+    ## CLIENT - LEAF ##
+    - endpoints: ["leaf1dc2:e1-1", "c8dc2:eth1"]
+    - endpoints: ["leaf2dc2:e1-1", "c9dc2:eth1"]
+    - endpoints: ["leaf2dc2:e1-3", "c13dc2:eth1"]
+
+    ##############  PE 3 ##############
+    - endpoints: ["c7:eth1", "pe30:eth3"]
