@@ -290,6 +290,17 @@ class CustomSROSDriver(NokiaSROSDriver):
         tunnels = [self._remove_prefix(tunnel['val'], "nokia-state:") for tunnel in ret if 'val' in tunnel]
         return tunnels
     
+    def get_interface_counters(self):
+        path = "/interfaces/interface"
+        prefix = "openconfig:"
+        ret = self.gnmi_get(prefix=prefix, path=path, encoding="json_ietf", datatype="state")
+        counters = {}
+        for interface in ret:
+            val = interface['val']['openconfig-interfaces:state']
+            counters[val['name']] = val['counters']
+
+        return counters
+    
     def get_route_to(self, destination="", protocol="", longer=False):
         """
         Returns a dictionary of dictionaries containing details of all available routes to a destination.

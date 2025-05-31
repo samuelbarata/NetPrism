@@ -1164,6 +1164,17 @@ class CustomSRLDriver(NokiaSRLDriver):
                 tunnels.append(tunnel_data)
 
         return tunnels
+    
+    def get_interface_counters(self):
+        path = "/interfaces/interface"
+        prefix = "openconfig:"
+        ret = self.device._gnmiGet(prefix=prefix, path=path, pathType="state")
+        counters = {}
+        for interface in ret['interfaces']['interface']:
+            val = interface['state']
+            counters[val['name']] = val['counters']
+
+        return counters
 
     def _remove_prefix(self, d, prefix):
         return {k[len(prefix):] if k.startswith(prefix) else k: v for k, v in d.items()}

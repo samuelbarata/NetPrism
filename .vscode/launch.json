@@ -90,8 +90,10 @@
                 "/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml",
                 "--cert-file",
                 "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
-                // "--inv-filter",
-                // "site=dc1",
+                "--inv-filter",
+                "site=wan1",
+                "--inv-filter",
+                "site=provider",
                 "--debug",
                 "bgp-peers"
             ],
@@ -397,6 +399,27 @@
                 "--network-instance",
                 "vrf-3",
                 // "--dry-run"
+            ],
+        },
+        {
+            "name": "Python: Run netprism cli CLab int-counter",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/netprism/main.py",
+            "pythonPath": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "-t",
+                "/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml",
+                "--cert-file",
+                "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
+                // "--inv-filter",
+                // "site=wan1",
+                // "--inv-filter",
+                // "site=provider",
+                // "--debug",
+                "int-counter"
             ],
         },
         {
