@@ -147,9 +147,9 @@
                 "/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml",
                 "--cert-file",
                 "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
-                // "--inv-filter",
-                // "site=dc1",
-                // "--debug",
+                // "--inv-filter", 
+                // "site=wan1",
+                // "--debug", 
                 "rib"
             ],
         },

@@ -57,7 +57,7 @@ DEFAULTS = {
         'username': 'admin',
         'password': 'admin',
         'gnmi_port': 57400,
-        'insecure': False,
+        'insecure': True,
     }
 }
 
@@ -965,7 +965,6 @@ def ni(ctx: Context, field_filter: Optional[List] = None):
 )
 def rib(ctx: Context, field_filter: Optional[List] = None):
     """Displays Routing Table"""
-    # FIXME: SROS
 
     GET = 'get_route_to'
     HEADERS = [{'_default':'Route'}, {'protocol':'Protocol'}, {'next_hop':'Next Hop'}, {'selected_next_hop':'Selected Next Hop'}, {'preference':'preference'}, {'routing_table': 'Routing Table'}, {'outgoing_interface':'Outgoing Interface'}, {'as_path':'AS Path'}]
@@ -1094,7 +1093,6 @@ def vlans(ctx: Context, field_filter: Optional[List] = None):
 )
 def es(ctx: Context, field_filter: Optional[List] = None):
     """Displays Ethernet Segments"""
-    #FIXME: SROS
 
     GET = 'get_ethernet_segments'
     HEADERS = [{'name':'Name'}, {'esi':'ESI'}, {'multi-homing-mode': 'MH Mode'}, {'interface': 'Interfaces'}, {'_ni_peers':'NI Peers'}]
