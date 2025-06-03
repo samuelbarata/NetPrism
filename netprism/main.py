@@ -1,8 +1,3 @@
-import sys
-import types
-# Prevent gnmi_pb2 from being imported; would break pygnmi
-sys.modules['napalm_srl.gnmi_pb2'] = types.ModuleType('napalm_srl.gnmi_pb2')
-
 from importlib.metadata import PackageNotFoundError
 from typing import Any, Dict, List, Optional, Callable
 import importlib
@@ -18,7 +13,7 @@ from nornir import InitNornir
 from nornir.core import Nornir
 
 from nornir.core.task import Result, Task, AggregatedResult, MultiResult
-from nornir_napalm.plugins.tasks import napalm_get, napalm_cli, napalm_configure, napalm_ping
+from nornir_napalm.plugins.tasks import napalm_get, napalm_configure, napalm_ping
 from netprism.napalm_traceroute import napalm_traceroute
 
 from nornir.core.inventory import Host
@@ -135,6 +130,7 @@ def print_table(
     headers: List[dict],
     results: Dict[str, List],
     filter: Optional[Dict],
+    force_terminal = False,
     **kwargs,
 ) -> None:
     table_theme = Theme(
@@ -159,7 +155,7 @@ def print_table(
     }
 
 
-    console = Console(theme=table_theme)
+    console = Console(theme=table_theme, force_terminal=force_terminal)
     console._emoji = False
     if kwargs.get("box_type") and kwargs["box_type"] != None:
         box_type = str(kwargs["box_type"]).upper()
@@ -281,6 +277,11 @@ def print_table(
     is_flag=True,
     help="Enable debug mode."
 )
+@click.option(
+    "--force-terminal",
+    is_flag=True,
+    help="Forces terminal output (e.g. colored output)"
+)
 
 @click.pass_context
 @click.version_option(version=get_project_version())
@@ -293,7 +294,8 @@ def cli(
     box_type: Optional[str] = None,
     topo_file: Optional[str] = None,
     cert_file: Optional[str] = None,
-    debug: Optional[bool] = False
+    debug: Optional[bool] = False,
+    force_terminal: Optional[bool] = False
 ) -> None:
     ctx.ensure_object(dict)
     if topo_file:  # CLAB mode, -c ignored, inventory generated from topo file
@@ -461,6 +463,7 @@ def cli(
     ctx.obj["box_type"] = box_type
     # ctx.obj["format"] = format
     ctx.obj["debug"]=debug
+    ctx.obj["force_terminal"]=force_terminal
 
 
 def print_report(
@@ -471,6 +474,7 @@ def print_report(
     box_type: Optional[str] = None,
     f_filter: Optional[Dict] = None,
     i_filter: Optional[Dict] = None,
+    force_terminal: Optional[bool] = False
 ) -> None:
     title = "[bold]" + name + "[/bold]"
     if f_filter:
@@ -487,6 +491,7 @@ def print_report(
         results=processed_result,
         filter=f_filter,
         box_type=box_type,
+        force_terminal=force_terminal,
     )
 
 @cli.command()
@@ -546,6 +551,7 @@ def sys_info(ctx: Context, field_filter: Optional[List] = None):
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 @cli.command()
@@ -603,6 +609,7 @@ def lldp(ctx: Context, field_filter: Optional[List] = None):
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 @cli.command()
@@ -664,6 +671,7 @@ def arp(ctx: Context, field_filter: Optional[List] = None):
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 @cli.command()
@@ -722,6 +730,7 @@ def mac(ctx: Context, field_filter: Optional[List] = None):
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 
@@ -806,6 +815,7 @@ def bgp_peers(ctx: Context, field_filter: Optional[List] = None):
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 
@@ -868,6 +878,7 @@ def users(ctx: Context, field_filter: Optional[List] = None):
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 @cli.command()
@@ -953,6 +964,7 @@ def ni(ctx: Context, field_filter: Optional[List] = None):
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 @cli.command()
@@ -1023,6 +1035,7 @@ def rib(ctx: Context, field_filter: Optional[List] = None):
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 @cli.command()
@@ -1081,6 +1094,7 @@ def vlans(ctx: Context, field_filter: Optional[List] = None):
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 @cli.command()
@@ -1149,6 +1163,7 @@ def es(ctx: Context, field_filter: Optional[List] = None):
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 
@@ -1214,6 +1229,7 @@ def lag(ctx: Context, field_filter: Optional[List] = None):
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 @cli.command()
@@ -1274,6 +1290,7 @@ def tunnels(ctx: Context, field_filter: Optional[List] = None):
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 @cli.command()
@@ -1334,7 +1351,7 @@ def int_counter(ctx: Context, field_filter: Optional[List] = None):
             for k in res[node].result[GET]:
                 dev_result = res[node].result[GET][k]
                 new_res = {HEADERS[0]['_default']: k}
-                
+
                 empty = True
                 for key in dev_result:
                     if key in EXISTING_HEADERS:
@@ -1343,7 +1360,7 @@ def int_counter(ctx: Context, field_filter: Optional[List] = None):
                         new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: dev_result[key]})
                 if not empty:
                     node_ret.append(new_res)
-                
+
             ret[node] = node_ret
         return ret
 
@@ -1357,6 +1374,7 @@ def int_counter(ctx: Context, field_filter: Optional[List] = None):
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 @cli.command()
@@ -1459,6 +1477,7 @@ def ping(ctx: Context, destination: str, source: Optional[str] = None, size: Opt
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 
@@ -1563,6 +1582,7 @@ def traceroute(ctx: Context, destination: str, source: Optional[str] = None, tim
         box_type=ctx.obj["box_type"],
         f_filter=f_filter,
         i_filter=ctx.obj["i_filter"],
+        force_terminal=ctx.obj["force_terminal"],
     )
 
 
@@ -1655,7 +1675,7 @@ def user(ctx: Context, username: str, password: Optional[str] = None, rsa_key: O
     default=None,
     multiple=False,
     type=str,
-    help="Interface to be added to the Network Instancer",
+    help="Interface to be added to the Network Instances",
 )
 @click.option(
     "--network-instance",

@@ -94,7 +94,7 @@
                 "site=wan1",
                 "--inv-filter",
                 "site=provider",
-                "--debug",
+                // "--debug",
                 "bgp-peers"
             ],
         },
@@ -288,7 +288,7 @@
                 "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
                 // "--inv-filter",
                 // "site=dc1",
-                "--debug",
+                // "--debug",
                 "configure",
                 "user",
                 "--username",

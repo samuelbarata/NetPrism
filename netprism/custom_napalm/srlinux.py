@@ -1,3 +1,8 @@
+import sys
+import types
+# Prevent gnmi_pb2 from being imported; would break pygnmi
+sys.modules['napalm_srl.gnmi_pb2'] = types.ModuleType('napalm_srl.gnmi_pb2')
+
 from napalm_srl.srl import NokiaSRLDriver, SRLAPI
 # https://github.com/napalm-automation-community/napalm-srlinux/blob/main/napalm_srl/srl.py
 
@@ -1164,7 +1169,7 @@ class CustomSRLDriver(NokiaSRLDriver):
                 tunnels.append(tunnel_data)
 
         return tunnels
-    
+
     def get_interface_counters(self):
         path = "/interfaces/interface"
         prefix = "openconfig:"

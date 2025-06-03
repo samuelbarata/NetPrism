@@ -33,6 +33,7 @@ netprism = 'netprism.main:cli'
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"
+pyinstrument = "^5.0.2"
 
 [tool.pytest.ini_options]
 addopts = "-v -s --disable-warnings -s"
