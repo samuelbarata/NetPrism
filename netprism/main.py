@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Callable
 import importlib
 from fnmatch import fnmatch
 import os
+import sys
 import tempfile
 from datetime import timedelta
 from copy import deepcopy
@@ -72,7 +73,7 @@ NORNIR_DEFAULT_CONFIG: Dict[str, Any] = {
     "runner": {
         "plugin": "threaded",
         "options": {
-            "num_workers": 20,
+            "num_workers": 40,
         },
     },
     "user_defined": {
