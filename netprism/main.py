@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, message="pkg_resources is deprecated as an API.*")
+
 from importlib.metadata import PackageNotFoundError
 from typing import Any, Dict, List, Optional, Callable
 import importlib
@@ -798,8 +801,8 @@ def bgp_peers(ctx: Context, field_filter: Optional[List] = None):
                             if key in EXISTING_HEADERS:
                                 new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: connection[key]})
 
-                        if new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] == 0:
-                            new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] = new_res[HEADERS[EXISTING_HEADERS.index('local_as')]['local_as']]
+                        # if new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] == 0:
+                        #     new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] = new_res[HEADERS[EXISTING_HEADERS.index('local_as')]['local_as']]
 
 
             ret[node] = node_ret

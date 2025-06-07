@@ -13,6 +13,7 @@ import datetime
 import jmespath
 from lark import Lark, Transformer, v_args
 from pygnmi.client import gNMIclient, gNMIException
+from pygnmi.client import logger as gnmi_logger
 from grpc import StatusCode
 
 TRACEROUTE_GRAMMAR = r"""
@@ -110,6 +111,7 @@ class TracerouteTransformer(Transformer):
 class SRLAPIPatched(SRLAPI):
     def __init__(self, hostname, username, password, timeout=60, optional_args=None):
         super().__init__(hostname, username, password, timeout, optional_args)
+        gnmi_logger.setLevel(logging.CRITICAL + 1)
 
     def open(self):
         """Establish a connection using pygnmi"""
