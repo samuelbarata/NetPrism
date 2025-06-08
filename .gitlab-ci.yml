@@ -69,5 +69,8 @@ Push to Github:
     - ssh-agent bash -c "ssh-add $SSH_KEY"
     - ssh-keyscan -H github.com >> /root/.ssh/known_hosts
   script:
-    - git remote add github git@github.com:samuelbarata/NetPrism.git
+    - |
+      if ! git remote | grep -q github; then
+        git remote add github git@github.com:samuelbarata/NetPrism.git
+      fi
     - git push github HEAD:$CI_COMMIT_REF_NAME
