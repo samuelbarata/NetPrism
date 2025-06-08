@@ -70,4 +70,4 @@ Push to Github:
     - ssh-keyscan -H github.com >> /root/.ssh/known_hosts
   script:
     - git remote add github git@github.com:samuelbarata/NetPrism.git
-    - git push github
+    - git push github HEAD:$CI_COMMIT_REF_NAME
