@@ -59,6 +59,7 @@ Deploy Tag:
 Push to Github:
   stage: deploy
   when: manual
+  image: samuelbarata/infinity-gauntlet:latest
   variables:
     SSH_KEY: /root/.ssh/id_rsa
   before_script:
