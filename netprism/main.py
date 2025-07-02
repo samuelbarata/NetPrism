@@ -134,7 +134,7 @@ def print_table(
     headers: List[dict],
     results: Dict[str, List],
     filter: Optional[Dict],
-    force_terminal = False,
+    force_terminal = None,
     **kwargs,
 ) -> None:
     table_theme = Theme(
@@ -156,6 +156,9 @@ def print_table(
         "active": "[cyan]",
         "connect": "[warn]",
         "Unknown Host": "[err]",
+        "x": "[err]",
+        "n/a": "[err]",
+        "?": "[warn]",
     }
 
 
@@ -467,8 +470,9 @@ def cli(
     ctx.obj["box_type"] = box_type
     # ctx.obj["format"] = format
     ctx.obj["debug"]=debug
+    if force_terminal is False:
+        force_terminal = None
     ctx.obj["force_terminal"]=force_terminal
-
 
 def print_report(
     processed_result: Dict[str, List],
@@ -478,15 +482,25 @@ def print_report(
     box_type: Optional[str] = None,
     f_filter: Optional[Dict] = None,
     i_filter: Optional[Dict] = None,
-    force_terminal: Optional[bool] = False
+    force_terminal: Optional[bool] = None
 ) -> None:
     title = "[bold]" + name + "[/bold]"
     if f_filter:
         title += "\nFields filter:" + str(f_filter)
     if i_filter:
         title += "\nInventory filter:" + str(i_filter)
+    not_implemented = set()
+    failed_hosts = set()
     if len(result.failed_hosts) > 0:
-        title += "\n[red]Failed hosts:" + str(result.failed_hosts)
+        for host in result.failed_hosts:
+            if result[host].result.splitlines()[-1].strip().rstrip() == 'NotImplementedError':
+                not_implemented.add(host)
+            else:
+                failed_hosts.add(host)
+    if len(not_implemented) > 0:
+        title += "\n[cyan]Not Implemented for hosts: " + str(not_implemented)[1:-1]
+    if len(failed_hosts) > 0:
+        title += "\n[red]Failed hosts: " + str(failed_hosts)[1:-1]
 
     print_table(
         title=title,
@@ -690,7 +704,7 @@ def mac(ctx: Context, field_filter: Optional[List] = None):
     """Displays MAC table"""
 
     GET = 'get_mac_address_table'
-    HEADERS = [{'mac':'MAC Address'}, {'interface':'Destination'}, {'vlan':'Vlan'}, {'static':'Static'}]
+    HEADERS = [{'mac':'MAC Address'}, {'interface':'Destination'}, {'vlan':'Vlan_TunnelId'}, {'static':'Static'}]
     EXISTING_HEADERS = [list(obj.keys())[0] for obj in HEADERS]
 
     def _mac(task: Task) -> Result:
@@ -802,9 +816,12 @@ def bgp_peers(ctx: Context, field_filter: Optional[List] = None):
                             if key in EXISTING_HEADERS:
                                 new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: connection[key]})
 
-                        # if new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] == 0:
-                        #     new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] = new_res[HEADERS[EXISTING_HEADERS.index('local_as')]['local_as']]
-
+                        if new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] == 0:
+                            new_res[HEADERS[EXISTING_HEADERS.index('remote_as')]['remote_as']] = 'X'
+                            new_res[HEADERS[EXISTING_HEADERS.index('local_as')]['local_as']] = 'X'
+                            del(new_res[HEADERS[EXISTING_HEADERS.index('ipv4')]['ipv4']])
+                            del(new_res[HEADERS[EXISTING_HEADERS.index('ipv6')]['ipv6']])
+                            new_res[HEADERS[EXISTING_HEADERS.index('evpn')]['evpn']] = '?'
 
             ret[node] = node_ret
         return ret
