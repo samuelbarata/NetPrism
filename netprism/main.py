@@ -734,6 +734,8 @@ def mac(ctx: Context, field_filter: Optional[List] = None):
                 for key in dev_result:
                     if key in EXISTING_HEADERS:
                         new_res.update({HEADERS[EXISTING_HEADERS.index(key)][key]: dev_result[key]})
+                if new_res.get(HEADERS[EXISTING_HEADERS.index('vlan')]['vlan']) == -1:
+                    del(new_res[HEADERS[EXISTING_HEADERS.index('vlan')]['vlan']]) # = 'N/A'
                 node_ret.append(new_res)
             ret[node] = node_ret
         return ret
