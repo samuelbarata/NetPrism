@@ -12,17 +12,12 @@ RUN pip install "poetry==$POETRY_VERSION"
 WORKDIR /app
 
 COPY pyproject.toml ./
-COPY . ./
-RUN poetry install
-
-FROM python:3.12-slim-bookworm as runtime
-
-ENV VIRTUAL_ENV=/app/.venv \
-      PATH="/app/.venv/bin:$PATH"
-
-COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
+COPY README.md ./
 COPY ./${PYTHON_PKG} /app/${PYTHON_PKG}
 
+RUN poetry install
+
+ENV VIRTUAL_ENV=/app/.venv \
+    PATH="/app/.venv/bin:$PATH"
+
 ENTRYPOINT [ "netprism" ]
-
-
