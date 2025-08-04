@@ -43,8 +43,6 @@
 # --- Image Settings ---
 DOCKER_IMAGE="samuelbarata/netprism"
 TAG="latest"
-DOCKER_IMAGE="netprism_local"
-TAG="dev"
 
 # --- File Paths ---
 # Option 1: Containerlab (mutually exclusive with Nornir)
