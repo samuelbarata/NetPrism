@@ -5,9 +5,9 @@ from netprism.main import cli
 import re
 
 DEBUG = False
-DEFAULT_ARGS = ["-t", "tests/netprism.clab.yaml"]
+DEFAULT_ARGS = ["-t", "tests/netprism.clab.yaml", "--no-wrap"]
 if DEBUG:
-    DEFAULT_ARGS += ["--debug", "--no-wrap"]
+    DEFAULT_ARGS += ["--debug"]
 
 # Internal-to-display header mapping
 HEADERS = {
