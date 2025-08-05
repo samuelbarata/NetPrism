@@ -84,12 +84,12 @@ def test_sys_info(mock_napalm_get):
     expected_rows = []
     for name, info in DEVICE_INFO.items():
         row = {"Node": name}
-        for mapping in HEADERS:
-            internal_key, display_key = next(iter(mapping.items()))
+        for internal_key, display_key in HEADERS.items():
             row[display_key] = info[internal_key]
         expected_rows.append(row)
 
-    for expected_row in expected_rows:
-        assert expected_row in parsed_output, f"Missing or incorrect row: {expected_row}"
+    parsed_output_sorted = sorted(parsed_output, key=lambda x: x['Node'])
+    expected_rows_sorted = sorted(expected_rows, key=lambda x: x['Node'])
 
     assert len(parsed_output) == len(expected_rows), "Output row count does not match expected count"
+    assert parsed_output_sorted == expected_rows_sorted, "The parsed output does not match the expected output."
