@@ -45,9 +45,10 @@ DOCKER_IMAGE="samuelbarata/netprism"
 TAG="latest"
 
 # --- File Paths ---
+CERT_FILE="/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem"
+
 # Option 1: Containerlab (mutually exclusive with Nornir)
 CLAB_TOPO="/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml"
-CERT_FILE="/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem"
 
 # Option 2: Nornir (mutually exclusive with Containerlab)
 # IMPORTANT: This should be the path to the DIRECTORY containing your nornir

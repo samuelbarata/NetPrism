@@ -15,12 +15,14 @@ This allows you to manage multiple network environments (e.g., a lab, production
 
 ### Setup Instructions
 
-1.  **Create an Environment File**: Make a copy of the `netprism.sh` script for the environment you want to manage.
+1. **Download [`netprism.sh`](neprism.sh) from this repo** 
+
+2.  **Create an Environment File**: Make a copy of the `netprism.sh` script for the environment you want to manage.
     ```bash
     cp netprism.sh my_lab_env.sh
     ```
 
-2.  **Edit the Configuration**: Open your new script (e.g., `my_lab_env.sh`) in a text editor and modify the variables in the `--- USER CONFIGURATION ---` section to match your setup.
+3.  **Edit the Configuration**: Open your new script (e.g., `my_lab_env.sh`) in a text editor and modify the variables in the `--- USER CONFIGURATION ---` section to match your setup.
 
 ### Configuration Variables
 
@@ -30,8 +32,8 @@ The following variables need to be set in your environment script:
 | --------------- | :------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DOCKER_IMAGE`  |    No    | The name of the Docker image to use. Defaults to `samuelbarata/netprism`.                                                                                                |
 | `TAG`           |    No    | The tag of the Docker image. Defaults to `latest`.                                                                                                                      |
-| `CLAB_TOPO`     |   Yes* | The **full path** to your Containerlab topology file (e.g., `netprism.clab.yaml`).                                                                                      |
 | `CERT_FILE`     |    No    | The **full path** to your CA certificate file if you are using one.                                                                                           |
+| `CLAB_TOPO`     |   Yes* | The **full path** to your Containerlab topology file (e.g., `netprism.clab.yaml`).                                                                                      |
 | `NORNIR_DIR`    |   Yes* | The **full path** to the **directory** containing your Nornir files (`nornir_config.yaml`, `hosts.yaml`, etc.). **Note:** Paths inside your `nornir_config.yaml` must be relative. |
 | `NORNIR_CONFIG` |    No    | The name of the Nornir configuration file within `NORNIR_DIR`. Defaults to `nornir_config.yaml`.                                                                         |
 
