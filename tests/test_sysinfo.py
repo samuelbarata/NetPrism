@@ -4,6 +4,7 @@ from click.testing import CliRunner
 from netprism.main import cli
 import re
 
+TERMINAL_WIDTH=5000
 DEBUG = False
 DEFAULT_ARGS = ["-t", "tests/netprism.clab.yaml", "--no-wrap"]
 if DEBUG:
@@ -75,7 +76,7 @@ def parse_sys_info_output(output: str) -> list[dict]:
 
 def test_sys_info(mock_napalm_get):
     runner = CliRunner(mix_stderr=False)
-    result = runner.invoke(cli, DEFAULT_ARGS + ["sys-info"])
+    result = runner.invoke(cli, DEFAULT_ARGS + ["sys-info"], terminal_width=TERMINAL_WIDTH)
 
     assert result.exit_code == 0
     assert result.output is not None

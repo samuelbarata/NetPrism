@@ -293,7 +293,7 @@ def print_table(
 @click.option(
     "--no-wrap",
     is_flag=True,
-    help="Forces all the columns to have the complete whith, doent't truncate longer values"
+    help="Forces all the columns to have the complete width, doent't truncate longer values"
 )
 @click.pass_context
 @click.version_option(version=get_project_version())
