@@ -135,7 +135,7 @@ def print_table(
     results: Dict[str, List],
     filter: Optional[Dict],
     force_terminal = None,
-    no_wrap = False
+    no_wrap = False,
     **kwargs,
 ) -> None:
     table_theme = Theme(
