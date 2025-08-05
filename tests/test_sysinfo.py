@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from click.testing import CliRunner
 from netprism.main import cli
 import re
@@ -75,8 +75,8 @@ def parse_sys_info_output(output: str) -> list[dict]:
     return rows
 
 def test_sys_info(mock_napalm_get):
-    runner = CliRunner(mix_stderr=False)
-    result = runner.invoke(cli, DEFAULT_ARGS + ["sys-info"], terminal_width=TERMINAL_WIDTH)
+    runner = CliRunner(mix_stderr=False, env={"COLUMNS": str(TERMINAL_WIDTH)})
+    result = runner.invoke(cli, DEFAULT_ARGS + ["sys-info"])
 
     assert result.exit_code == 0
     assert result.output is not None
