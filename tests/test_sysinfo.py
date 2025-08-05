@@ -10,13 +10,14 @@ if DEBUG:
     DEFAULT_ARGS += ["--debug"]
 
 # Internal-to-display header mapping
-HEADERS = [
-    {'vendor': 'Vendor'},
-    {'model': 'Model'},
-    {'serial_number': 'Serial Number'},
-    {'os_version': 'Software Version'},
-    {'uptime': 'Uptime'},
-]
+HEADERS = {
+    'vendor': 'Vendor',
+    'model': 'Model',
+    'serial_number': 'Serial Number',
+    'os_version': 'Software Version',
+    'uptime': 'Uptime',
+}
+
 DEVICE_INFO = {
     "dc1dcgw1": {"vendor": "Nokia", "model": "7750 SR-1", "serial_number": "vSIM", "os_version": "B-24.7.R2", "uptime": "15:02:26.930000"},
     "dc1dcgw2": {"vendor": "Nokia", "model": "7750 SR-1", "serial_number": "vSIM", "os_version": "B-24.7.R2", "uptime": "15:02:40.260000"},
