@@ -135,6 +135,7 @@ def print_table(
     results: Dict[str, List],
     filter: Optional[Dict],
     force_terminal = None,
+    no_wrap = False
     **kwargs,
 ) -> None:
     table_theme = Theme(
@@ -182,7 +183,7 @@ def print_table(
     for entry in headers:
         for value in entry.values():
             col_names.append(value)
-            table.add_column(value, no_wrap=False)
+            table.add_column(value, no_wrap=no_wrap)
 
     def pass_filter(row: dict, filter: Optional[Dict]) -> bool:
         if filter is None:
@@ -289,7 +290,11 @@ def print_table(
     is_flag=True,
     help="Forces terminal output (e.g. colored output)"
 )
-
+@click.option(
+    "--no-wrap",
+    is_flag=True,
+    help="Forces all the columns to have the complete whith, doent't truncate longer values"
+)
 @click.pass_context
 @click.version_option(version=get_project_version())
 def cli(
@@ -302,7 +307,8 @@ def cli(
     topo_file: Optional[str] = None,
     cert_file: Optional[str] = None,
     debug: Optional[bool] = False,
-    force_terminal: Optional[bool] = False
+    force_terminal: Optional[bool] = False,
+    no_wrap: Optional[bool] = False
 ) -> None:
     ctx.ensure_object(dict)
     if topo_file:  # CLAB mode, -c ignored, inventory generated from topo file
@@ -472,7 +478,8 @@ def cli(
     ctx.obj["debug"]=debug
     if force_terminal is False:
         force_terminal = None
-    ctx.obj["force_terminal"]=force_terminal
+    ctx.obj["force_terminal"] = force_terminal
+    ctx.obj["no_wrap"] = no_wrap
 
 def print_report(
     processed_result: Dict[str, List],
@@ -482,7 +489,8 @@ def print_report(
     box_type: Optional[str] = None,
     f_filter: Optional[Dict] = None,
     i_filter: Optional[Dict] = None,
-    force_terminal: Optional[bool] = None
+    force_terminal: Optional[bool] = None,
+    no_wrap: Optional[bool] = False
 ) -> None:
     title = "[bold]" + name + "[/bold]"
     if f_filter:
@@ -510,6 +518,7 @@ def print_report(
         filter=f_filter,
         box_type=box_type,
         force_terminal=force_terminal,
+        no_wrap=no_wrap,
     )
 
 @cli.command()

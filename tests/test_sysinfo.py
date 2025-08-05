@@ -7,7 +7,7 @@ import re
 DEBUG = False
 DEFAULT_ARGS = ["-t", "tests/netprism.clab.yaml"]
 if DEBUG:
-    DEFAULT_ARGS += ["--debug"]
+    DEFAULT_ARGS += ["--debug", "--no-wrap"]
 
 # Internal-to-display header mapping
 HEADERS = {
