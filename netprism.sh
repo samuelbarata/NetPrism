@@ -26,7 +26,7 @@
 # 4.  You can now use the netprism commands directly:
 #
 #     netprism sys-info
-#     np arp -i site=lab
+#     np -i site=lab arp
 #
 # 5.  To switch environments, simply source a different configuration file.
 #
