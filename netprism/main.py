@@ -520,7 +520,7 @@ def print_report(
     help='filter fields with <field-name>=<glob-pattern>, e.g. -f state=up -f admin_state="ena*". Fieldnames correspond to column names of a report',
 )
 def sys_info(ctx: Context, field_filter: Optional[List] = None):
-    """Displays System Info of nodes"""
+    """Displays device facts (model, version, S/N)."""
 
     GET = 'facts'
     HEADERS = [{'vendor':'Vendor'}, {'model':'Model'}, {'serial_number':'Serial Number'}, {'os_version':'Software Version'}, {'uptime':'Uptime'}]
@@ -580,7 +580,7 @@ def sys_info(ctx: Context, field_filter: Optional[List] = None):
     help='filter fields with <field-name>=<glob-pattern>, e.g. -f state=up -f admin_state="ena*". Fieldnames correspond to column names of a report',
 )
 def lldp(ctx: Context, field_filter: Optional[List] = None):
-    """Displays LLDP Neighbors"""
+    """Shows discovered LLDP neighbors."""
 
     GET = 'lldp_neighbors_detail'
     HEADERS = [{'_default': 'Interface'}, {'remote_system_name':'Nbr-System'}, {'remote_port':'Nbr-port'}, {'remote_port_description':'Nbr-port-desc'}]
@@ -638,7 +638,7 @@ def lldp(ctx: Context, field_filter: Optional[List] = None):
     help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
 )
 def arp(ctx: Context, field_filter: Optional[List] = None):
-    """Displays ARP table"""
+    """Displays the ARP table (IP to MAC mapping)."""
 
     GET = 'arp_table'
     HEADERS = [{'interface': 'Interface'}, {'mac':'MAC Address'}, {'ip':'IPv4'}, {'Type':'Type'}, {'age':'Expiry'}]
@@ -700,7 +700,7 @@ def arp(ctx: Context, field_filter: Optional[List] = None):
     help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
 )
 def mac(ctx: Context, field_filter: Optional[List] = None):
-    """Displays MAC table"""
+    """Displays the MAC address forwarding table."""
 
     GET = 'get_mac_address_table'
     HEADERS = [{'mac':'MAC Address'}, {'interface':'Destination'}, {'vlan':'Vlan_TunnelId'}, {'static':'Static'}]
@@ -762,7 +762,7 @@ def mac(ctx: Context, field_filter: Optional[List] = None):
     help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
 )
 def bgp_peers(ctx: Context, field_filter: Optional[List] = None):
-    """Displays BGP Peers and their status"""
+    """Shows BGP neighbor status and session details."""
     # FIXME: SROS neighbors AS not working properly
 
     HEADERS = [{'_default':'VRF'}, {'remote_address':'Peer'}, {'evpn':'EVPN\nRx/Act/Tx'}, {'ipv4':'IPv4\nRx/Act/Tx'}, {'ipv6':'IPv6\nRx/Act/Tx'}, {'export_policy':'Export Policy'}, {'routing_table':'Group'}, {'import_policy':'Import Policy'}, {'local_as':'Local AS'}, {'remote_as':'Remote AS'}, {'connection_state':'State'}]
@@ -850,7 +850,7 @@ def bgp_peers(ctx: Context, field_filter: Optional[List] = None):
     help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
 )
 def users(ctx: Context, field_filter: Optional[List] = None):
-    """Displays Users table"""
+    """Displays configured local user accounts."""
 
     GET = 'get_users'
     HEADERS = [{'_default':'User'}, {'level':'Level'}, {'password': 'Password'}, {'sshkeys': 'SSH Keys'}]
@@ -912,7 +912,7 @@ def users(ctx: Context, field_filter: Optional[List] = None):
     help='filter fields with <field-name>=<glob-pattern>, e.g. -f state=up -f admin_state="ena*". Fieldnames correspond to column names of a report',
 )
 def ni(ctx: Context, field_filter: Optional[List] = None):
-    """Displays Network Instances"""
+    """Displays Network Instances (VRFs) and their interfaces."""
 
     GET = ['get_network_instances', 'get_interfaces', 'get_interfaces_ip']
     # HEADERS = {'name': 'Name', 'type':'Type', 'interfaces':'Sub-Interfaces', 'mtu': 'MTU', 'speed':'Speed', 'description':'Description', 'ip_prefix': 'IP Prefix', 'mac_address': 'MAC Address'}
@@ -998,7 +998,7 @@ def ni(ctx: Context, field_filter: Optional[List] = None):
     help='filter fields with <field-name>=<glob-pattern>, e.g. -f state=up -f admin_state="ena*". Fieldnames correspond to column names of a report',
 )
 def rib(ctx: Context, field_filter: Optional[List] = None):
-    """Displays Routing Table"""
+    """Displays the Routing Information Base (routing table)."""
 
     GET = 'get_route_to'
     HEADERS = [{'_default':'Route'}, {'protocol':'Protocol'}, {'next_hop':'Next Hop'}, {'selected_next_hop':'Selected Next Hop'}, {'preference':'preference'}, {'routing_table': 'Routing Table'}, {'outgoing_interface':'Outgoing Interface'}, {'as_path':'AS Path'}]
@@ -1069,7 +1069,7 @@ def rib(ctx: Context, field_filter: Optional[List] = None):
     help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
 )
 def vlans(ctx: Context, field_filter: Optional[List] = None):
-    """Displays Vlans table"""
+    """Displays configured VLANs and their interfaces."""
 
     GET = 'get_vlans'
     HEADERS = [{'_default':'VLan ID'}, {'name':'Name'}, {'interfaces': 'Interfaces'}]
@@ -1128,7 +1128,7 @@ def vlans(ctx: Context, field_filter: Optional[List] = None):
     help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
 )
 def es(ctx: Context, field_filter: Optional[List] = None):
-    """Displays Ethernet Segments"""
+    """Displays EVPN Ethernet Segments for multi-homing."""
 
     GET = 'get_ethernet_segments'
     HEADERS = [{'name':'Name'}, {'esi':'ESI'}, {'multi-homing-mode': 'MH Mode'}, {'interface': 'Interfaces'}, {'_ni_peers':'NI Peers'}]
@@ -1198,7 +1198,7 @@ def es(ctx: Context, field_filter: Optional[List] = None):
     help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
 )
 def lag(ctx: Context, field_filter: Optional[List] = None):
-    """Displays Link Agregation"""
+    """Displays Link Aggregation Group (LAG) members and status."""
 
     GET = 'get_link_agregation_groups'
     HEADERS = [{'name':'LAG'}, {'mtu':'MTU'}, {'min_links': 'min'}, {'lag_type': 'Type'}, {'lag_speed':'Speed'}, {'key': 'LACP Key'}, {'lacp_interval': 'LACP Interval'}, {'lacp_mode': 'LACP Mode'}, {'system_id': 'LACP System ID'}, {'activity': 'LACP Activity'}, {'interface': 'Interface'}, {'synchronization': 'Syncronization'}]
@@ -1263,7 +1263,7 @@ def lag(ctx: Context, field_filter: Optional[List] = None):
     help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
 )
 def tunnels(ctx: Context, field_filter: Optional[List] = None):
-    """Displays Tunnel Table"""
+    """Displays the status of network tunnels (VXLAN, MPLS)."""
 
     GET = 'get_tunnel_table'
 
@@ -1324,7 +1324,7 @@ def tunnels(ctx: Context, field_filter: Optional[List] = None):
     help='filter fields with <field-name>=<glob-pattern>, e.g. -f name=ge-0/0/0 -f admin_state="ena*". Fieldnames correspond to column names of a report',
 )
 def int_counter(ctx: Context, field_filter: Optional[List] = None):
-    """Displays Interface Counters"""
+    """Shows interface traffic, error, and discard counters."""
     # openconfig:/interfaces/interface
 
     GET = 'get_interface_counters'
@@ -1444,7 +1444,7 @@ def int_counter(ctx: Context, field_filter: Optional[List] = None):
     help="VRF for the ping",
 )
 def ping(ctx: Context, destination: str, source: Optional[str] = None, size: Optional[int] = None, count: Optional[int] = None, timeout: Optional[int] = None, vrf: Optional[str] = None, field_filter: Optional[List] = None):
-    """Displays Pings"""
+    """Runs a ping from a device to a destination."""
 
     GET = 'ping'
     HEADERS = [{'rtt_avg':'Average'}, {'rtt_max':'Max'}, {'rtt_min': 'Min'}, {'rtt_stddev': 'StDev'}, {'packet_loss':'packet_loss'}]
@@ -1536,7 +1536,7 @@ def ping(ctx: Context, destination: str, source: Optional[str] = None, size: Opt
     help="VRF for the traceroute",
 )
 def traceroute(ctx: Context, destination: str, source: Optional[str] = None, timeout: Optional[int] = None, vrf: Optional[str] = None, field_filter: Optional[List] = None):
-    """Displays Traceroute"""
+    """Runs a traceroute from a device to a destination."""
 
     GET = 'traceroute'
     HEADERS = [{'_default':'Hop'}, {'host_name':'Hostname'}, {'ip_address':'IP'}, {'rtt1': 'rtt1'}, {'rtt2': 'rtt2'}, {'rtt3':'rtt3'}]
@@ -1617,7 +1617,8 @@ def traceroute(ctx: Context, destination: str, source: Optional[str] = None, tim
     help="Dry run",
 )
 def configure(ctx: Context, devices: Optional[List] = None, dry_run: Optional[bool] = False):
-    """Configure nodes"""
+    """Applies configurations (use 'configure --help' for commands)."""
+    ctx['dry-run'] = dry_run
     pass
 
 @configure.command()
@@ -1647,20 +1648,15 @@ def configure(ctx: Context, devices: Optional[List] = None, dry_run: Optional[bo
     help="SSH Key for the user to create",
 )
 @click.option(
-    "--dry-run",
-    is_flag=True,
-    type=bool,
-    help="Dry run",
-)
-@click.option(
     "--level",
     "-l",
     default=None,
     help="Level for the user to create (0-15)",
     type=int
 )
-def user(ctx: Context, username: str, password: Optional[str] = None, rsa_key: Optional[List] = None, ecdsa_key: Optional[List] = None, dry_run: Optional[bool] = False, level: Optional[int] = None):
-    """Create new User"""
+def user(ctx: Context, username: str, password: Optional[str] = None, rsa_key: Optional[List] = None, ecdsa_key: Optional[List] = None, level: Optional[int] = None):
+    """Creates a new local user account on a device."""
+    dry_run = ctx.obj['dry-run']
 
     user_details = {'username': username}
     if password:
@@ -1707,8 +1703,9 @@ def user(ctx: Context, username: str, password: Optional[str] = None, rsa_key: O
     type=str,
     help="Network Instance to which the interface should be assigned",
 )
-def assign_interface(ctx: Context, network_instance: str, interface: str, dry_run: Optional[bool] = False):
-    """Assing interface to Network Instancer"""
+def assign_interface(ctx: Context, network_instance: str, interface: str):
+    """Assigns a physical or logical interface to a network instance (VRF)."""
+    dry_run = ctx.obj['dry-run']
 
     details = {'ni': network_instance, 'int': interface}
 
@@ -1729,12 +1726,6 @@ def assign_interface(ctx: Context, network_instance: str, interface: str, dry_ru
 
 @configure.command()
 @click.pass_context
-@click.option(
-    "--dry-run",
-    is_flag=True,
-    type=bool,
-    help="Dry run",
-)
 @click.option(
     "--vrf",
     default=None,
@@ -1777,8 +1768,9 @@ def assign_interface(ctx: Context, network_instance: str, interface: str, dry_ru
     type=str,
     help="BGP route-target to import from evpn (e.g. target:100:1)",
 )
-def mac_vrf(ctx: Context, vrf: str, vxlan_interface: str, bgp_instance: int, bgp_evi: int, route_target_export: str, route_target_import: str, bgp_ecmp: Optional[int] = 1, dry_run: Optional[bool] = False):
-    """Create new MAC VRF"""
+def mac_vrf(ctx: Context, vrf: str, vxlan_interface: str, bgp_instance: int, bgp_evi: int, route_target_export: str, route_target_import: str, bgp_ecmp: Optional[int] = 1):
+    """Creates a new MAC-VRF network instance on fabric devices."""
+    dry_run = ctx.obj['dry-run']
 
     vxlan_interface_split = vxlan_interface.split('.')
     options = {
@@ -1811,12 +1803,6 @@ def mac_vrf(ctx: Context, vrf: str, vxlan_interface: str, bgp_instance: int, bgp
 
 @configure.command()
 @click.pass_context
-@click.option(
-    "--dry-run",
-    is_flag=True,
-    type=bool,
-    help="Dry run",
-)
 @click.option(
     "--vpls",
     default=None,
@@ -1901,8 +1887,9 @@ def mac_vrf(ctx: Context, vrf: str, vxlan_interface: str, bgp_instance: int, bgp
     type=str,
     help="BGP MPLS route-target to import (e.g. target:200952:1)",
 )
-def vpls(ctx: Context, vpls: str, bgp_evi: int, route_target_export: str, route_target_import: str, mpls_import_rt: str, mpls_export_rt: str, mpls_route_distinguisher: str, evpn_route_distinguisher:str, vxlan_instance: Optional[int] = 1, mtu: Optional[int] = 9000, customer: Optional[int] = 1, bgp_ecmp: Optional[int] = 1, bgp_evpn_instance: Optional[int] = 1, bgp_mpls_instance: Optional[int] = 1, dry_run: Optional[bool] = False):
-    """Create new MAC VRF"""
+def vpls(ctx: Context, vpls: str, bgp_evi: int, route_target_export: str, route_target_import: str, mpls_import_rt: str, mpls_export_rt: str, mpls_route_distinguisher: str, evpn_route_distinguisher:str, vxlan_instance: Optional[int] = 1, mtu: Optional[int] = 9000, customer: Optional[int] = 1, bgp_ecmp: Optional[int] = 1, bgp_evpn_instance: Optional[int] = 1, bgp_mpls_instance: Optional[int] = 1):
+    """Creates a VPLS instance on gateway devices to extend a MAC-VRF across the WAN."""
+    dry_run = ctx.obj['dry-run']
 
     options = {
         'vpls': vpls,

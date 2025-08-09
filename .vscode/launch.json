@@ -2,6 +2,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Run netprism cli CLab Help",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/netprism/main.py",
+            "pythonPath": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--help"
+            ],
+        },
+        {
             "name": "Python: Run netprism cli CLab LLDP",
             "type": "python",
             "request": "launch",
@@ -271,6 +283,23 @@
                 "traceroute",
                 "--destination",
                 "10.0.1.3",
+            ],
+        },
+        {
+            "name": "Python: Run netprism cli CLab Configure Help",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/netprism/main.py",
+            "pythonPath": "${workspaceFolder}/.venv/bin/python",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "-t",
+                "/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml",
+                "--cert-file",
+                "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
+                "configure",
+                "--help"
             ],
         },
         {
