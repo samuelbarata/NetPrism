@@ -6,7 +6,7 @@ import re
 
 TERMINAL_WIDTH=5000
 DEBUG = False
-DEFAULT_ARGS = ["-t", "tests/netprism.clab.yaml", "--no-wrap"]
+DEFAULT_ARGS = ["-t", "tests/netprism.clab.yaml"]
 if DEBUG:
     DEFAULT_ARGS += ["--debug"]
 
