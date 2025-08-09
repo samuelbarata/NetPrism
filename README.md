@@ -34,7 +34,7 @@ The following variables need to be set in your environment script:
 | `TAG`           |    No    | The tag of the Docker image. Defaults to `latest`.                                                                                                                      |
 | `CERT_FILE`     |    No    | The **full path** to your CA certificate file if you are using one.                                                                                           |
 | `CLAB_TOPO`     |   Yes* | The **full path** to your Containerlab topology file (e.g., `netprism.clab.yaml`).                                                                                      |
-| `NORNIR_DIR`    |   Yes* | The **full path** to the **directory** containing your Nornir files (`nornir_config.yaml`, `hosts.yaml`, etc.). **Note:** Paths inside your `nornir_config.yaml` must be relative. |
+| `NORNIR_DIR`    |   Yes* | The **full path** to the **directory** containing your Nornir files (`nornir_config.yaml`, `hosts.yaml`, etc.). **Note:** Paths inside your `nornir_config.yaml` must be relative and prepended by `/nornir` (e.g., `/nornir/hosts.yaml`). |
 | `NORNIR_CONFIG` |    No    | The name of the Nornir configuration file within `NORNIR_DIR`. Defaults to `nornir_config.yaml`.                                                                         |
 
 **\*Note:** `CLAB_TOPO` and `NORNIR_DIR` are **mutually exclusive**. You must set one and leave the other empty (`""`).

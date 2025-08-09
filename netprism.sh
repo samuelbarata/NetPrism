@@ -53,7 +53,8 @@ CLAB_TOPO="/home/samuelbarata/labs/dci-netprism-lab/netprism.clab.yaml"
 # Option 2: Nornir (mutually exclusive with Containerlab)
 # IMPORTANT: This should be the path to the DIRECTORY containing your nornir
 #            files (nornir_config.yaml, hosts.yaml, etc).
-#            Paths inside nornir_config.yaml MUST be relative (e.g., "hosts.yaml").
+#            Paths inside nornir_config.yaml MUST be relative
+#            and prepended by /nornir (e.g., "/nornir/hosts.yaml").
 NORNIR_DIR="" #"/home/samuelbarata/labs/dci-netprism-lab/nornir"
 # (Optional) Specify a non-default config file name. Defaults to nornir_config.yaml
 NORNIR_CONFIG="nornir_config.yaml"
