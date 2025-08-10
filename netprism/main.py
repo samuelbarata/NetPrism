@@ -1628,7 +1628,7 @@ def traceroute(ctx: Context, destination: str, source: Optional[str] = None, tim
 )
 def configure(ctx: Context, devices: Optional[List] = None, dry_run: Optional[bool] = False):
     """Applies configurations (use 'configure --help' for commands)."""
-    ctx['dry-run'] = dry_run
+    ctx.obj['dry-run'] = dry_run
     pass
 
 @configure.command()
