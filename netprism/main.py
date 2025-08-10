@@ -115,11 +115,20 @@ def build_nornir_filter(filter_dict):
     - Each key is a field name
     - Each value is a list of values to OR together
     - Each field is ANDed together
+    - Uses __contains for list fields and __eq for other fields
     """
     and_filters = []
 
     for key, values in filter_dict.items():
-        or_filters = [F(**{f"{key}__eq": value}) for value in values]
+        or_filters = []
+        for value in values:
+            # Create filters that work for both list and non-list fields
+            # Try __contains first (for list fields), fallback to __eq (for scalar fields)
+            contains_filter = F(**{f"{key}__contains": value})
+            eq_filter = F(**{f"{key}__eq": value})
+            # OR the two approaches so it works for both list and scalar fields
+            or_filters.append(contains_filter | eq_filter)
+        
         combined_or = reduce(operator.or_, or_filters)
         and_filters.append(combined_or)
 

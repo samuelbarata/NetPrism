@@ -462,6 +462,10 @@
             "args": [
                 "-c",
                 "/home/samuelbarata/labs/dci-netprism-lab/nornir/nornir_config.yaml",
+                "--cert-file",
+                "/home/samuelbarata/labs/dci-netprism-lab/clab-netprism-demo/.tls/ca/ca.pem",
+                "-i",
+                "site=wan1",
                 "sys-info"
             ]
         },
@@ -479,4 +483,4 @@
             "cwd": "${workspaceFolder}"
         }
     ]
-  }
+}
