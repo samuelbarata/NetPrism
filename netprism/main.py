@@ -1471,9 +1471,10 @@ def ping(ctx: Context, destination: str, source: Optional[str] = None, size: Opt
                 continue
             node_ret = []
             if res[node].result is None:
+                ret[node] = [{HEADERS[4]['packet_loss']: "No route to Host"}]
                 continue
             if 'error' in res[node].result:
-                ret[node] = [{HEADERS[4]['packet_loss']: f"{count}/{count}"}]
+                ret[node] = [{HEADERS[4]['packet_loss']: res[node].result["error"]}]
                 continue
             else:
                 dev_result = res[node].result['success']
